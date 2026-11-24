@@ -34,6 +34,8 @@ const AdminIncidentsPage = lazy(() => import('./pages/admin/AdminIncidentsPage')
 const AdminPartnersPage = lazy(() => import('./pages/admin/AdminPartnersPage'))
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'))
 const AdminAuditPage = lazy(() => import('./pages/admin/AdminAuditPage'))
+const AdminAiPage = lazy(() => import('./pages/admin/AdminAiPage'))
+const DevelopersPage = lazy(() => import('./pages/developers/DevelopersPage'))
 
 /** Role-based route guard. RLS enforces the same rules on the server. */
 function RequireRole({ roles, children }) {
@@ -77,6 +79,7 @@ export default function App() {
         <Route path="/report" element={<ReportPage />} />
         <Route path="/incident/:token" element={<IncidentTrackingPage />} />
         <Route path="/alerts/:token" element={<AlertsPage />} />
+        <Route path="/developers/:section?" element={<DevelopersPage />} />
         <Route path="/safety" element={<SafetyPage />} />
         <Route path="/my-bookings" element={<MyBookingsPage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -102,6 +105,7 @@ export default function App() {
           <Route path="/admin/incidents" element={<AdminIncidentsPage />} />
           <Route path="/admin/partners" element={<AdminPartnersPage />} />
           <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+          <Route path="/admin/ai" element={<AdminAiPage />} />
           <Route path="/admin/audit" element={<AdminAuditPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />

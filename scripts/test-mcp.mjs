@@ -237,3 +237,25 @@ assert.equal((await as(null, 'select * from alert_deliveries')).length, 0, 'anon
 assert.ok((await as(U.admin, 'select * from alert_deliveries')).length >= 4, 'admins see delivery status')
 
 console.log('✓ alerts: consent, coverage, verified-only fan-out, no duplicates, radius/category/pause/expiry, unsubscribe erases data, access control')
+
+// ================================================================ Phase 5: admin AI-integrations overview + dataset toggles
+await assert.rejects(rpc(U.hotel1, 'admin_ai_overview'), /Administrator/)
+await assert.rejects(rpc(null, 'set_mcp_dataset', { p_key: 'providers', p_enabled: false }), /Administrator/)
+const ov = await rpc(U.admin, 'admin_ai_overview')
+assert.ok(ov.requests.total > 0 && ov.requests.last_7d > 0)
+assert.ok(ov.requests.by_tool.some((t) => t.tool === 'check_area_safety' && t.ok > 0))
+assert.ok(ov.requests.rate_limited_7d > 0 && ov.requests.unauthorised_7d > 0, 'abuse signals visible')
+assert.equal(ov.requests.daily.length, 14)
+assert.ok(ov.requests.recent.length <= 25 && ov.requests.recent.every((r) => !('args' in r)))
+assert.ok(ov.reports.from_ai_total > 0)
+assert.ok(ov.subscriptions.active >= 1 && ov.subscriptions.unsubscribed >= 1)
+assert.ok(ov.deliveries.by_status.delivered >= 3)
+assert.doesNotMatch(JSON.stringify(ov), /\+44|TEST-RAW-DESC|whatsapp_number|manage_token/, 'no personal data or raw text in the overview')
+await assert.rejects(rpc(U.admin, 'set_mcp_dataset', { p_key: 'everything', p_enabled: false }), /Unknown dataset/)
+assert.equal((await rpc(U.admin, 'set_mcp_dataset', { p_key: 'providers', p_enabled: false })).providers, false)
+assert.equal((await call('verify_transport_provider', { provider_name: 'trusted' }, { client: 'toggle' })).code, 'disabled', 'toggle takes effect immediately')
+await rpc(U.admin, 'set_mcp_dataset', { p_key: 'providers', p_enabled: true })
+assert.equal((await call('verify_transport_provider', { provider_name: 'trusted' }, { client: 'toggle' })).ok, true)
+assert.ok((await as(U.admin, `select 1 from audit_logs where action = 'set_mcp_dataset'`)).length === 2, 'toggles audited')
+
+console.log('✓ admin AI overview: admin-only, real aggregates, no personal data; dataset toggles immediate + audited')

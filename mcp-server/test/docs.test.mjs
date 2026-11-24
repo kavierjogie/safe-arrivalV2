@@ -5,7 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { TOOLS } from '../src/server.js'
 
 const root = new URL('../../', import.meta.url)
-const read = (p) => readFileSync(new URL(p, root), 'utf8')
+const read = (p) => readFileSync(new URL(p, root), 'utf8').replace(/\r\n/g, '\n') // Windows checkouts use CRLF
 const names = TOOLS.map((t) => t.name)
 
 // ---- SKILL.md frontmatter (agentskills.io/specification)
@@ -28,7 +28,10 @@ for (const [, ref] of skill.matchAll(/\]\((references\/[^)]+)\)/g)) read(skillDi
 const toolsRef = read(`${skillDir}references/tools.md`)
 for (const n of names) assert.ok(toolsRef.includes(`\`${n}\``), `references/tools.md documents ${n}`)
 const docs = [skill, toolsRef, read(`${skillDir}references/scenarios.md`), read('mcp-server/README.md'),
-  ...readdirSync(new URL('docs/integrations/', root)).map((f) => read(`docs/integrations/${f}`))].join('\n')
+  ...readdirSync(new URL('docs/integrations/', root)).map((f) => read(`docs/integrations/${f}`)),
+  read('src/pages/developers/DevelopersPage.jsx').replace(/[A-Z_]+:/g, '')].join('\n')
+// The portal's example args use tool names as object keys; check those too.
+for (const [, k] of read('src/pages/developers/DevelopersPage.jsx').matchAll(/^\s{2}([a-z]+(?:_[a-z]+)+): \{/gm)) assert.ok(names.includes(k), `portal example for unknown tool ${k}`)
 const mentioned = new Set([...docs.matchAll(/`([a-z]+(?:_[a-z]+){1,3})`/g)].map((m) => m[1]))
 const TOOLISH = /^(check|get|verify|report|find|subscribe|manage|unsubscribe)_/
 const FIELDS = new Set(['manage_url', 'manage_token', 'get_alert_subscription', 'update_alert_subscription', 'unsubscribe_alerts']) // fields + web RPCs

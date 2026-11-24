@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
-  AlertOctagon, BarChart3, Bell, Car, ClipboardList, FileClock, Handshake, IdCard, LayoutDashboard, LogOut, Menu,
+  AlertOctagon, BarChart3, Bell, Bot, Car, ClipboardList, FileClock, Handshake, IdCard, LayoutDashboard, LogOut, Menu,
   MessageCircle, QrCode, ShieldCheck, X,
 } from 'lucide-react'
 import { ConnectionIndicator, Logo } from '../common/ui'
@@ -14,7 +14,7 @@ import { LANGUAGES, getLanguage, setLanguage, t } from '../../i18n'
 export function PublicHeader() {
   const [open, setOpen] = useState(false)
   const nav = ({ isActive }) => `rounded-md px-3 py-2 text-sm font-medium ${isActive ? 'text-navy' : 'text-muted hover:text-navy'}`
-  const links = [['/how-it-works', t('nav.howItWorks')], ['/assistant', t('nav.arrange')], ['/my-bookings', t('nav.myBookings')], ['/safety', t('nav.safety')], ['/login', t('nav.signIn')]]
+  const links = [['/how-it-works', t('nav.howItWorks')], ['/assistant', t('nav.arrange')], ['/my-bookings', t('nav.myBookings')], ['/safety', t('nav.safety')], ['/developers', 'Developers'], ['/login', t('nav.signIn')]]
   return (
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
@@ -49,7 +49,7 @@ const NAV = {
     ['/provider/incidents', 'Incidents', AlertOctagon]],
   driver: [['/driver', 'My trips', Car]],
   admin: [['/admin', 'Overview', LayoutDashboard], ['/admin/incidents', 'Incidents', AlertOctagon], ['/admin/partners', 'Partners', Handshake],
-    ['/admin/analytics', 'Analytics', BarChart3], ['/admin/audit', 'Audit log', FileClock]],
+    ['/admin/analytics', 'Analytics', BarChart3], ['/admin/ai', 'AI integrations', Bot], ['/admin/audit', 'Audit log', FileClock]],
 }
 
 function useOrgName() {
