@@ -106,7 +106,7 @@ assert.equal((await rpc(null, 'get_trip', { p_token: created2.access_token })).c
 await fails(rpc(U.hotel1, 'set_partner_status', { p_kind: 'driver', p_id: 'c0000000-0000-4000-8000-000000000006', p_status: 'approved' }), /Administrator/)
 await rpc(U.admin, 'set_partner_status', { p_kind: 'driver', p_id: 'c0000000-0000-4000-8000-000000000006', p_status: 'approved' })
 assert.ok((await as(U.admin, 'select count(*)::int n from audit_logs'))[0].n > 3)
-await fails(rpc(null, 'reset_demo'), /Administrator/)
+await fails(rpc(null, 'reset_demo'), /permission denied/) // anon has no EXECUTE at all (migration 9)
 await rpc(U.admin, 'reset_demo')
 assert.equal((await as(U.admin, `select count(*)::int n from bookings where status = 'pending'`))[0].n, 1)
 assert.equal((await as(U.admin, `select count(*)::int n from profiles`))[0].n, 8)

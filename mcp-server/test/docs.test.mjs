@@ -29,6 +29,7 @@ const toolsRef = read(`${skillDir}references/tools.md`)
 for (const n of names) assert.ok(toolsRef.includes(`\`${n}\``), `references/tools.md documents ${n}`)
 const docs = [skill, toolsRef, read(`${skillDir}references/scenarios.md`), read('mcp-server/README.md'),
   ...readdirSync(new URL('docs/integrations/', root)).map((f) => read(`docs/integrations/${f}`)),
+  read('docs/DEMO.md'), read('docs/DEPLOYMENT.md'), read('README.md'),
   read('src/pages/developers/DevelopersPage.jsx').replace(/[A-Z_]+:/g, '')].join('\n')
 // The portal's example args use tool names as object keys; check those too.
 for (const [, k] of read('src/pages/developers/DevelopersPage.jsx').matchAll(/^\s{2}([a-z]+(?:_[a-z]+)+): \{/gm)) assert.ok(names.includes(k), `portal example for unknown tool ${k}`)

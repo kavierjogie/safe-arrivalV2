@@ -240,7 +240,7 @@ console.log('✓ alerts: consent, coverage, verified-only fan-out, no duplicates
 
 // ================================================================ Phase 5: admin AI-integrations overview + dataset toggles
 await assert.rejects(rpc(U.hotel1, 'admin_ai_overview'), /Administrator/)
-await assert.rejects(rpc(null, 'set_mcp_dataset', { p_key: 'providers', p_enabled: false }), /Administrator/)
+await assert.rejects(rpc(null, 'set_mcp_dataset', { p_key: 'providers', p_enabled: false }), /permission denied/) // anon has no EXECUTE (migration 9)
 const ov = await rpc(U.admin, 'admin_ai_overview')
 assert.ok(ov.requests.total > 0 && ov.requests.last_7d > 0)
 assert.ok(ov.requests.by_tool.some((t) => t.tool === 'check_area_safety' && t.ok > 0))

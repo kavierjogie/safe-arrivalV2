@@ -4,7 +4,9 @@
 
 A WhatsApp-first trusted transport and safety platform for tourists arriving in Cape Town, built for the Cape Town Tourism *Safer and Smarter Tourism* hackathon. It is **not another Uber**. It is a coordination and verification layer between tourists, partner hotels, shuttle companies and supported e-hailing, built around **one verification process that works the same across every provider**.
 
-> **Prototype notice.** All hotels, providers, drivers, tourists and incidents are fictional. WhatsApp and Uber Central are simulated unless you configure them (see below). Meeting-point descriptions are demo content.
+Its safety information is also available **inside the AI assistants tourists already use**. ChatGPT, Claude and any MCP client can connect to the public SafeArrival MCP server to check reported transport incidents, verify a driver or partner, get pickup guidance and emergency numbers, report a problem, or subscribe to alerts. See [SafeArrival MCP](#safearrival-mcp-safety-tools-inside-ai-assistants), the [demo script](docs/DEMO.md) and [deployment](docs/DEPLOYMENT.md).
+
+> **Prototype notice.** All hotels, providers, drivers, tourists and incidents are fictional, and every MCP response says so. The live site uses one shared Supabase demo database. WhatsApp and Uber Central are simulated unless you configure them (see below). Meeting-point descriptions are demo content.
 
 ---
 
@@ -105,19 +107,30 @@ React 19 · JavaScript · Vite · Tailwind CSS v4 · React Router · Lucide · S
 ## Tests
 
 ```bash
-npm test          # = test:db + test:chat
+npm test                  # = test:db + test:chat + test:mcp   (no network, no accounts)
+cd mcp-server && npm test # MCP protocol tests + skill/docs sync
 ```
 * `scripts/test-db.mjs` runs every migration + seed on real Postgres (PGlite), then checks the RLS boundaries per role, both scenarios, code hashing/redaction/expiry, incidents, police references, admin approvals, audit and reset.
 * `scripts/test-conversation.mjs` drives the WhatsApp engine through both scenarios against the SQL, and checks WhatsApp's button and list limits.
+* `scripts/test-mcp.mjs` covers:
+  * every MCP tool, and server-secret auth
+  * rate limits
+  * privacy: no raw report text, and a prompt-injection string that never reaches output
+  * verification labels and dataset switches
+  * alert subscriptions: consent, coverage, verified-only alerts, no duplicates, pause/expiry, data deletion on unsubscribe
+  * the admin AI overview
+* `mcp-server/test/server.test.mjs` speaks real MCP to the server: a client pinned to 2026-07-28, plus a raw 2025-era request, with validation, CORS and logging.
+* `mcp-server/test/docs.test.mjs` fails if the skill, guides, READMEs or developer portal mention a tool that doesn't exist, or leave one out.
+* Against a deployment: `node mcp-server/test/smoke.mjs <url>` (read-only) and `node mcp-server/test/parity.mjs <url>` (deployed tools match the code).
 
 `scripts/e2e.py` (Playwright) drives the full UI through both scenarios: four roles, two live tabs, mobile viewport and reset. Run `npm run dev` first.
 
 ## Environment variables
-See `.env.example`. Only `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` and optionally `VITE_WHATSAPP_NUMBER` go in the frontend. **Never** put the service-role key or WhatsApp secrets in a `VITE_` variable.
+See `.env.example`. Only `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and optionally `VITE_WHATSAPP_NUMBER` and `VITE_MCP_URL`, go in the frontend. **Never** put the service-role key or WhatsApp secrets in a `VITE_` variable. The MCP server has its own variables (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MCP_SERVER_SECRET`); see `mcp-server/.env.example`. Every variable for every project is listed in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Supabase setup
 1. Create a project (the free tier is fine).
-2. Run the SQL in order: `supabase/migrations/2026112400000{1..5}_*.sql`, then `supabase/seed.sql` (SQL editor, or `supabase link && supabase db reset`).
+2. Run the SQL in order: `supabase/migrations/20261124000001…10_*.sql`, then `supabase/seed.sql` (SQL editor, or `supabase link && supabase db reset`). If you run the MCP server, register its secret: `select private.set_mcp_secret('<MCP_SERVER_SECRET>');`. Full steps are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 3. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to `.env.local` and to Vercel.
 4. Demo logins (seeded): `frontdesk@saltwaterlodge.demo`, `admin@safearrival.demo`, `michael@saltwaterlodge.demo`, `dispatch@trustedshuttle.demo`, … password **`SafeArrival-Demo-2026`**. *If your Supabase version rejects the seeded auth users, create them under Authentication → Users with the same emails; the profile rows link by id, so re-run `select private.seed_demo_data();` after setting each new user's id to the one in `seed.sql`, or update `profiles.id`.*
 5. New sign-ups become `tourist` profiles. An admin promotes staff by updating `profiles.role` and `hotel_id` / `provider_id` / `driver_id`.
@@ -156,19 +169,35 @@ This path is implemented but **untested against a live Meta account**.
 Uber options are labelled as **estimates** and run through a **simulated adapter**. Confirming one creates a `SIM-UBER-…` reference flagged `external_simulated`, and every screen says no real Uber trip was requested. Still open: whether Uber Central's trip notes or rider messages can reliably carry the verification code to the driver. This needs confirmed API access and Uber's answer, so it is not claimed.
 
 ## Deploying to Vercel
-Import the repo (Vite is auto-detected: `npm run build` → `dist`), add the env vars if using Supabase, deploy. `vercel.json` handles SPA deep links, long-term caching for hashed assets, and basic security headers. Without env vars the deployed site runs the in-browser demo, which is ideal for judges.
+Two Vercel projects deploy from this repo:
+* **The web app** (repo root): Vite is auto-detected (`npm run build` → `dist`). `vercel.json` handles SPA deep links, long-term caching for hashed assets, and basic security headers. Without Supabase env vars, the deployed site runs the in-browser demo instead.
+* **The MCP server** (root directory `mcp-server`): stateless serverless functions in `fra1`, with deployment protection **off** so AI assistants can reach it.
+
+Env vars, verification, rollback and a pre-production checklist are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Security & privacy
 Implemented: Supabase Auth and roles; RLS on every table; RPC-only writes with server-side validation and transition rules; hashed, single-use, expiring codes; private link tokens kept apart from staff-readable data; driver phone shown to the tourist only once the driver is on the way; private evidence bucket with signed URLs scoped to incidents the viewer may see; rate limits on bookings, code checks, verifications and reports; webhook signature verification; audit log of admin and booking actions; no passport, card or payment credential collection; dashboards labelled as demo data.
 
-**Before production:** set `app_settings.demo_mode = false` (disables `reset_demo`), delete the demo users, add a server-side pepper to code hashes, add IP-level rate limiting for anonymous uploads and reports (edge or WAF), complete a POPIA assessment, and use WhatsApp templates for proactive messages.
+**MCP and alerts:**
+* The MCP server uses no service-role key: the publishable key plus a server secret, whose hash is checked inside Postgres.
+* Input is validated twice, by schema in the server and by type and range in SQL.
+* Rate limits per salted IP hash, enforced in Postgres.
+* Raw traveller descriptions never reach AI output, which closes that path for prompt injection.
+* Results carry verification labels and limitations, never safety scores.
+* The request log stores no arguments or IPs.
+* Alerts need recorded consent, store the area at about 1 km, expire within 30 days, and unsubscribing erases the contact and location.
+* Admins switch datasets per type, and each change is audited.
+* Staff RPCs aren't executable by anonymous users (migration 10), and function `search_path`s are pinned (migration 9).
+
+**Before production:** set `app_settings.demo_mode = false` (disables `reset_demo`), delete the demo users, add a server-side pepper to code hashes, add IP-level rate limiting for anonymous uploads and reports (edge or WAF), complete a POPIA assessment, and use WhatsApp templates for proactive messages. The full checklist is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#6-before-real-data-not-done-in-the-hackathon-deployment).
 
 ## Project structure
 ```
 src/
   components/{common,layout,chat,tourist,dashboard,maps}
-  pages/{public,tourist,hotel,transport,admin}
+  pages/{public,tourist,hotel,transport,admin,developers}   incl. /alerts/:token, /admin/ai, /developers
   context/AppContext.jsx        session, roles, live queries
+  lib/mcp.js                    MCP endpoint + tiny browser client (portal, admin status)
   services/api.js               one client: Supabase or in-browser Postgres
   services/whatsapp/            simulator API for the shared engine
   services/transport/           provider adapters (hotel, shuttle, Uber Central mock)
@@ -176,9 +205,12 @@ src/
   lib/labels.js, intelligence.js, myTrips.js
   i18n/                         translation-ready (English shipped; fr/de/es/zh prepared)
 supabase/
-  migrations/                   schema → security → RPCs → demo seed → storage
+  migrations/                   schema → security → RPCs → demo seed → storage → MCP → alerts → AI admin → hardening
   seed.sql                      demo users + seed data
-  functions/whatsapp-webhook/   Meta webhook + outbound dispatcher
+  functions/whatsapp-webhook/   Meta webhook + outbound dispatcher (bookings and safety alerts)
   functions/_shared/            conversation engine (shared with the web simulator)
-scripts/                        SQL + conversation test suites
+mcp-server/                     public MCP server (Vercel): src/server.js tools, api/ functions, test/
+skills/safearrival-travel-safety/   Agent Skill (agentskills.io format)
+docs/                           DEPLOYMENT.md, DEMO.md, integrations/ (Claude, ChatGPT, other clients)
+scripts/                        SQL, conversation and MCP test suites
 ```
