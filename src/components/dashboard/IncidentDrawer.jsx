@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { ArrowUpRight, Building2, Car, Eye, Landmark, MessageCircle, Phone, ShieldAlert, StickyNote } from 'lucide-react'
+import { ArrowUpRight, Building2, Car, Eye, Landmark, Megaphone, MessageCircle, Phone, ShieldAlert, StickyNote } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { photoUrl, rpc } from '../../services/api'
 import { Button, Field, Info, Modal, inputCls, textareaCls } from '../common/ui'
@@ -38,6 +38,38 @@ const QUICK = {
   ],
 }
 QUICK.admin = [...QUICK.hotel_staff, ['closed', 'Close report', null, 'This report has been closed by the Safe Arrival safety team.']]
+
+const VERIFICATION = {
+  unverified: 'Unverified: shown to AI assistants only as an unconfirmed traveller report, without its text',
+  verified: 'Verified incident: published with your summary',
+  official_advisory: 'SafeArrival advisory: published with your summary',
+  rejected: 'Rejected: hidden from AI assistants and alerts',
+}
+
+/** Safety team only: decide what the public (MCP tools, alert subscribers) may see about this report. */
+function PublishPanel({ incident: i, run }) {
+  const [summary, setSummary] = useState(i.public_summary ?? '')
+  const [days, setDays] = useState(30)
+  const publish = (status) => run(() => rpc('set_incident_verification', { p_incident: i.id, p_status: status, p_summary: summary, p_public_days: Number(days) }),
+    status === 'verified' || status === 'official_advisory' ? 'Published. Alert subscribers nearby are being notified.' : 'Saved')
+  return (
+    <div className="space-y-2 rounded-xl border border-teal/30 bg-teal/5 p-3">
+      <p className="flex items-center gap-1.5 text-sm font-semibold"><Megaphone className="size-4" aria-hidden />Public safety intelligence</p>
+      <p className="text-xs text-muted">Now: <strong>{VERIFICATION[i.verification_status] ?? i.verification_status}</strong>.
+        Publishing makes the summary below visible to AI assistants and alerts subscribers whose area includes this location. The tourist’s own words are never published.</p>
+      <Field label="Public summary (no names, plates of private people, or exact addresses)">
+        <textarea className={textareaCls} rows={2} maxLength={500} value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="e.g. Travellers at the International Arrivals pickup area were asked for an unexpected cash fee." />
+      </Field>
+      <div className="flex flex-wrap items-end gap-2">
+        <Field label="Public for (days)"><input className={inputCls} type="number" min="1" max="365" value={days} onChange={(e) => setDays(e.target.value)} /></Field>
+        <Button size="sm" variant="safe" disabled={summary.trim().length < 10} onClick={() => publish('verified')}>Publish as verified</Button>
+        <Button size="sm" variant="outline" disabled={summary.trim().length < 10} onClick={() => publish('official_advisory')}>Publish as advisory</Button>
+        {i.verification_status !== 'unverified' && <Button size="sm" variant="ghost" onClick={() => publish('unverified')}>Unpublish</Button>}
+        <Button size="sm" variant="ghost" onClick={() => publish('rejected')}>Reject</Button>
+      </div>
+    </div>
+  )
+}
 
 /** Incident detail for hotel, provider and admin staff. */
 export default function IncidentDrawer({ ops, incidentId, onClose, onOpenBooking }) {
@@ -127,6 +159,8 @@ export default function IncidentDrawer({ ops, incidentId, onClose, onOpenBooking
               <Button type="submit" size="sm" variant="outline">Save reference</Button>
             </form>
           )}
+
+          {role === 'admin' && <PublishPanel key={i.id} incident={i} run={run} />}
 
           {role === 'admin' && (
             <Field label={<span className="flex items-center gap-1.5"><ShieldAlert className="size-4" aria-hidden />Incident handler</span>}>

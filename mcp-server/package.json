@@ -1,0 +1,22 @@
+{
+  "name": "safearrival-mcp",
+  "version": "0.2.0",
+  "private": true,
+  "description": "SafeArrival MCP server: South African travel-safety tools for AI assistants (ChatGPT, Claude and other MCP clients).",
+  "type": "module",
+  "bin": { "safearrival-mcp": "src/stdio.js" },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env src/dev.js",
+    "stdio": "node --env-file-if-exists=.env src/stdio.js",
+    "test": "node test/server.test.mjs && node test/docs.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "@supabase/supabase-js": "^2.119.2",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0"
+  }
+}

@@ -14,6 +14,7 @@ const BookPage = lazy(() => import('./pages/tourist/BookPage'))
 const TripPage = lazy(() => import('./pages/tourist/TripPage'))
 const ReportPage = lazy(() => import('./pages/tourist/ReportPage'))
 const IncidentTrackingPage = lazy(() => import('./pages/tourist/IncidentTrackingPage'))
+const AlertsPage = lazy(() => import('./pages/tourist/AlertsPage'))
 const SafetyPage = lazy(() => import('./pages/public/SafetyPage'))
 const MyBookingsPage = lazy(() => import('./pages/tourist/MyBookingsPage'))
 const LoginPage = lazy(() => import('./pages/public/LoginPage'))
@@ -75,6 +76,7 @@ export default function App() {
         <Route path="/trip/:token" element={<TripPage />} />
         <Route path="/report" element={<ReportPage />} />
         <Route path="/incident/:token" element={<IncidentTrackingPage />} />
+        <Route path="/alerts/:token" element={<AlertsPage />} />
         <Route path="/safety" element={<SafetyPage />} />
         <Route path="/my-bookings" element={<MyBookingsPage />} />
         <Route path="/login" element={<LoginPage />} />
