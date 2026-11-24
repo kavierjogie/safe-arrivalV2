@@ -50,6 +50,24 @@ Open the **Guided demo** in the presenter bar at the bottom of every page:
 | Driver | `/driver` | Assigned trips only, code from their own WhatsApp message, on-the-way/arrived/completed; can't start a ride without guest verification |
 | Admin | `/admin/*` | Platform KPIs, safety-intelligence patterns, analytics (types, locations, providers, over time, verification failures, payment complaints), incident investigation, partner approvals, audit log |
 
+## SafeArrival MCP: safety tools inside AI assistants
+
+SafeArrival's safety tools are also available to AI assistants through a public MCP server:
+
+**`https://safearrival-mcp.vercel.app/mcp`** (Streamable HTTP, no sign-in, rate-limited)
+
+The 11 tools cover area and route reports, alerts, transport-provider and driver checks, pickup guidance, emergency numbers, incident reporting and alert subscriptions (monitored by the backend, sent only for incidents the safety team has verified; managed at `/alerts/<token>`). Every result states its verification status, source, timestamps, location precision and limitations. There are no safety scores. Raw traveller descriptions never leave the database.
+
+| | |
+|---|---|
+| Connect Claude | [docs/integrations/connect-claude.md](docs/integrations/connect-claude.md) |
+| Connect ChatGPT (Business/Enterprise/Edu; Pro read-only) | [docs/integrations/connect-chatgpt.md](docs/integrations/connect-chatgpt.md) |
+| Cursor, VS Code, Claude Code, Inspector, SDK | [docs/integrations/mcp-clients.md](docs/integrations/mcp-clients.md) |
+| Agent Skill | [skills/](skills/README.md) |
+| Server code, security model, deploy | [mcp-server/](mcp-server/README.md) |
+
+The hackathon deployment uses fictional demo data, and every response says so.
+
 ## Architecture
 
 ```
@@ -116,6 +134,21 @@ See `.env.example`. Only `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` and optio
 5. Set `VITE_WHATSAPP_NUMBER` so QR codes open `wa.me/<number>?text=START hotel-001`.
 
 The webhook verifies `X-Hub-Signature-256`, ignores Meta's duplicate deliveries (`last_message_id`), rate-limits each number, stores conversation state in `whatsapp_sessions`, and handles unexpected input, keywords (`menu`, `help`/`agent`, `emergency`), returning users and cancellations. **Not yet done:** business-initiated messages outside WhatsApp's 24-hour window need **pre-approved templates**, and a Twilio adapter is not implemented. Neither has been tested against a live Meta account.
+
+**Safety-alert WhatsApp delivery** (optional; without it, alerts appear on the subscriber's `/alerts/<token>` page and are marked "WhatsApp not connected"):
+1. In Meta, create a *Utility* template with 3 body variables. For example: `{{1}}: {{2}} Manage or stop these alerts: {{3}}`. Get it approved.
+2. Set the template name, and optionally its language (default `en`):
+   ```bash
+   supabase secrets set WHATSAPP_ALERT_TEMPLATE=<name> WHATSAPP_ALERT_TEMPLATE_LANG=en
+   ```
+3. Add a second Database Webhook: on `alert_deliveries` INSERT, POST to `…/whatsapp-webhook/dispatch` with the same `Authorization` header.
+4. Turn it on in the SQL editor:
+   ```sql
+   update app_settings set value = 'true' where key = 'whatsapp_alerts_enabled';
+   ```
+   New WhatsApp alerts then start as `queued`, and the dispatcher marks them `sent`, `failed` or `not_configured`.
+
+This path is implemented but **untested against a live Meta account**.
 
 ## Uber Central
 Uber options are labelled as **estimates** and run through a **simulated adapter**. Confirming one creates a `SIM-UBER-…` reference flagged `external_simulated`, and every screen says no real Uber trip was requested. Still open: whether Uber Central's trip notes or rider messages can reliably carry the verification code to the driver. This needs confirmed API access and Uber's answer, so it is not claimed.

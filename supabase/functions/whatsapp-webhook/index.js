@@ -2,7 +2,7 @@
 //
 //   GET  /whatsapp-webhook             Meta webhook verification (hub.challenge)
 //   POST /whatsapp-webhook             Incoming messages → conversation engine → replies
-//   POST /whatsapp-webhook/dispatch    Database Webhook on notifications INSERT → sends
+//   POST /whatsapp-webhook/dispatch    Database Webhooks on notifications INSERT and alert_deliveries INSERT → sends
 //                                      booking/driver/incident messages to tourists & drivers
 //
 // Uses the SAME conversation engine as the in-browser simulator.
@@ -71,12 +71,13 @@ function toWhatsApp(to, r) {
   }
   return { messaging_product: 'whatsapp', to, type: 'text', text: { body: r.text.slice(0, 4096), preview_url: true } }
 }
-async function send(to, reply) {
+async function post(payload) {
   const res = await fetch(GRAPH, { method: 'POST', headers: { Authorization: `Bearer ${env('WHATSAPP_ACCESS_TOKEN')}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(toWhatsApp(to, reply)) })
+    body: JSON.stringify(payload) })
   if (!res.ok) console.error('WhatsApp send failed', res.status, await res.text())
   return res.ok
 }
+const send = (to, reply) => post(toWhatsApp(to, reply))
 
 // ---------------------------------------------------------------- inbound
 async function onMessage(msg, contact) {
@@ -127,6 +128,25 @@ async function dispatch(record) {
   await db.from('notifications').update({ delivery_status: ok ? 'sent' : 'failed' }).eq('id', record.id)
 }
 
+// Safety alerts (Database Webhook on alert_deliveries INSERT). Alerts are business-initiated, so
+// WhatsApp only allows a pre-approved TEMPLATE. Expected template body (3 variables), e.g.:
+//   "{{1}}: {{2}} Manage or stop these alerts: {{3}}"
+// Template variables may not contain newlines, hence the flattening.
+async function dispatchAlert(record) {
+  if (record.channel !== 'whatsapp' || record.delivery_status !== 'queued') return
+  const { data: sub } = await db.from('alert_subscriptions').select('whatsapp, manage_token, status').eq('id', record.subscription_id).maybeSingle()
+  let status = 'failed'
+  if (!env('WHATSAPP_ALERT_TEMPLATE')) status = 'not_configured'
+  else if (sub?.whatsapp && sub.status === 'active') {
+    const flat = (s, n) => s.replace(/\s*\n+\s*/g, ' · ').replace(/ {4,}/g, ' ').slice(0, n)
+    status = (await post({ messaging_product: 'whatsapp', to: sub.whatsapp.replace(/\D/g, ''), type: 'template', template: {
+      name: env('WHATSAPP_ALERT_TEMPLATE'), language: { code: env('WHATSAPP_ALERT_TEMPLATE_LANG') || 'en' },
+      components: [{ type: 'body', parameters: [flat(record.title, 60), flat(record.body, 900), `${APP_URL}/alerts/${sub.manage_token}`].map((text) => ({ type: 'text', text })) }],
+    } })) ? 'sent' : 'failed'
+  }
+  await db.from('alert_deliveries').update({ delivery_status: status, updated_at: new Date().toISOString() }).eq('id', record.id)
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url)
   if (req.method === 'GET') {
@@ -137,8 +157,8 @@ Deno.serve(async (req) => {
 
   if (url.pathname.endsWith('/dispatch')) {
     if (req.headers.get('authorization') !== `Bearer ${env('DISPATCH_SECRET')}` || !env('DISPATCH_SECRET')) return new Response('Unauthorized', { status: 401 })
-    const { record } = await req.json()
-    await dispatch(record)
+    const { table, record } = await req.json()
+    await (table === 'alert_deliveries' ? dispatchAlert(record) : dispatch(record))
     return new Response('ok')
   }
 
