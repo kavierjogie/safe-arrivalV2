@@ -1,0 +1,2 @@
+# Agent Skill files must keep LF line endings so zipped uploads parse on every platform.
+skills/** text eol=lf

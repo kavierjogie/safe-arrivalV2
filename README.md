@@ -65,6 +65,8 @@ The 11 tools cover area and route reports, alerts, transport-provider and driver
 | Cursor, VS Code, Claude Code, Inspector, SDK | [docs/integrations/mcp-clients.md](docs/integrations/mcp-clients.md) |
 | Agent Skill | [skills/](skills/README.md) |
 | Server code, security model, deploy | [mcp-server/](mcp-server/README.md) |
+| Developer portal (live tool reference, try-it console) | [`/developers`](https://safearrival-one.vercel.app/developers) |
+| Admin: AI usage, delivery status, dataset switches | `/admin/ai` (safety team) |
 
 The hackathon deployment uses fictional demo data, and every response says so.
 
