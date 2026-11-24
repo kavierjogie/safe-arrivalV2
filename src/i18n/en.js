@@ -1,0 +1,15 @@
+export default {
+  'cta.arrange': 'Arrange Trusted Transport',
+  'trip.somethingWrong': "Something's wrong",
+  'trip.whoIsCollecting': 'Who is collecting you',
+  'trip.codeTitle': 'Your verification code',
+  'trip.codeRule': 'The driver must say this code FIRST.',
+  'trip.codeRuleDetail': "Never read it out yourself. If the driver can't say it, do not get into the vehicle.",
+  'trip.pickup': 'Pickup instructions',
+  'trip.verify': 'Verify your driver',
+  'nav.howItWorks': 'How it works',
+  'nav.arrange': 'Arrange transport',
+  'nav.myBookings': 'My bookings',
+  'nav.safety': 'Safety info',
+  'nav.signIn': 'Partner sign in',
+}

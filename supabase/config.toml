@@ -1,0 +1,12 @@
+# Minimal Supabase CLI config (supabase start / db reset / functions deploy).
+project_id = "safe-arrival-cpt"
+
+[db]
+major_version = 15
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[functions.whatsapp-webhook]
+verify_jwt = false   # Meta calls it without a Supabase JWT; requests are verified by signature instead
