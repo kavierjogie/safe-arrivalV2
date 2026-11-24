@@ -65,7 +65,7 @@ export async function select(table, order = 'created_at desc') {
   try {
     if (backend === 'supabase') {
       let q = supabase.from(table).select('*').limit(2000)
-      if (order) { const [col, dir] = order.split(' '); q = q.order(col, { ascending: dir !== 'desc' }) }
+      for (const part of order ? order.split(',') : []) { const [col, dir] = part.trim().split(/\s+/); q = q.order(col, { ascending: dir !== 'desc' }) }
       const { data, error } = await q
       if (error) throw error
       return data
