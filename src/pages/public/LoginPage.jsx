@@ -54,7 +54,8 @@ export default function LoginPage() {
         <h2 id="demo-h" className="text-sm font-semibold">Demo accounts</h2>
         <p className="text-xs text-muted">{isSupabaseConfigured ? `Seeded users. Password: ${DEMO_PASSWORD} (demo only).` : 'Demo mode: choose an account; no password needed. Each browser tab can be a different account.'}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {DEMO_ACCOUNTS.map((a) => {
+          {/* One account per role (the first listed: the ones the scripted demo data is built around). */}
+          {DEMO_ACCOUNTS.filter((a, i, all) => all.findIndex((b) => b.role === a.role) === i).map((a) => {
             const Icon = ICON[a.role]
             return (
               <button key={a.id} disabled={busy} onClick={() => go(null, DEMO_PASSWORD, a.email)}
