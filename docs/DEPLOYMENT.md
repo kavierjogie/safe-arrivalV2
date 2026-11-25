@@ -28,6 +28,11 @@ development and offline demos.
    | `…08_ai_admin` | `admin_ai_overview()`, `set_mcp_dataset()` |
    | `…09_hardening` | Pinned `search_path`; trigger functions not callable |
    | `…10_anon_revoke` | Staff RPCs not callable by anonymous users |
+   | `…11_accommodation_feedback_goals` | Accommodation report categories, `safety_checks`, the shared feedback service (`request_feedback`, `submit_feedback`), safety guidance by stage, admin feedback/analytics reports, goals & targets, 4 new MCP tools |
+
+   After applying 011 on an existing project: run `select public.reset_demo();` as an admin (or `select private.seed_demo_data();` on a fresh DB)
+   to load the simulated feedback and checks, redeploy the `whatsapp-webhook` Edge Function (new menu and flows) and the MCP server (15 tools).
+   Feedback is only ever asked inside a conversation the visitor started, so no new WhatsApp templates are needed.
 
 3. Demo data (optional): run `supabase/seed.sql`. It creates 8 demo staff logins (password in that file) and the
    fictional data.
@@ -77,7 +82,7 @@ node test/smoke.mjs  https://safearrival-mcp.vercel.app/mcp  # read-only, both p
 node test/parity.mjs https://safearrival-mcp.vercel.app/mcp  # deployed tools == local src/server.js
 ```
 Then on the website check:
-- `/developers/tools` lists 11 tools.
+- `/developers/tools` lists 15 tools.
 - `/admin/ai` (as an admin) shows "Online · database reachable".
 - An alert manage link from `subscribe_safety_alerts` opens.
 

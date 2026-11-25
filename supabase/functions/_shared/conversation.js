@@ -12,25 +12,43 @@
 //
 // api (injected): hotels(), pickupPoints(), options(hotelSlug), createBooking(p), getTrip(token),
 //   recordVerification(token, outcome), checkCode(token, code), reportIncident(p),
-//   tripLink(token), incidentLink(token)
+//   checkAccommodation(p), checkProvider(p), getIncident(token), guidance(stage),
+//   requestFeedback(p), submitFeedback(p), tripLink(token), incidentLink(token)
+//
+// Everything here is a reply inside a conversation the visitor started, so it is always within
+// WhatsApp's 24-hour customer-service window: no templates are needed. Feedback is never pushed
+// as an outbound message; an unanswered offer is shown again in the visitor's next conversation.
 
 export const STATES = ['WELCOME', 'MENU', 'HOTEL_SELECTION', 'PICKUP', 'ARRIVAL_DAY', 'ARRIVAL_DATE', 'ARRIVAL_TIME', 'PASSENGERS',
   'LUGGAGE', 'NAME', 'PHONE', 'TRANSPORT_SELECTION', 'BOOKING_CONFIRMATION', 'BOOKED', 'VERIFICATION', 'VERIFY_MORE',
-  'INCIDENT_CATEGORY', 'INCIDENT_DESCRIPTION', 'INCIDENT_URGENT', 'COMPLETED']
+  'REPORT_SERVICE', 'INCIDENT_CATEGORY', 'INCIDENT_DESCRIPTION', 'INCIDENT_URGENT', 'COMPLETED',
+  'ACCOM_QUERY', 'PROVIDER_QUERY', 'CHECK_DONE', 'STATUS_QUERY', 'TIPS_STAGE', 'FEEDBACK_PICK', 'FEEDBACK_ASK', 'FEEDBACK']
 
 const CATEGORIES = [
   ['driver_mismatch', 'Driver doesn’t match'], ['code_incorrect', 'Code incorrect'], ['vehicle_mismatch', 'Vehicle doesn’t match'],
   ['extra_payment', 'Asked to pay extra'], ['suspected_scam', 'Suspected scam'], ['intimidation', 'Threatened/intimidated'],
   ['cannot_locate_driver', 'Can’t find my driver'], ['other', 'Something else'],
 ]
+const ACC_CATEGORIES = [
+  ['listing_mismatch', 'Not as advertised', 'Address, photos or rooms differ from the listing'],
+  ['booking_payment_fraud', 'Suspicious payment', 'Odd payment request, changed bank details, deposit'],
+  ['host_identity_mismatch', 'Contact details differ', 'Name, phone or email doesn’t match'],
+  ['accommodation_unsafe', 'I felt unsafe', 'At check-in or around the accommodation'],
+  ['accommodation_other', 'Something else', 'Another accommodation problem'],
+]
 const OUTCOME_CATEGORY = { code_mismatch: 'code_incorrect', details_mismatch: 'driver_mismatch', wrong_vehicle: 'vehicle_mismatch', cannot_find: 'cannot_locate_driver' }
+const INCIDENT_STATUS = { received: 'Received', hotel_notified: 'Hotel notified', hotel_pending: 'Waiting for the hotel', provider_notified: 'Transport provider notified',
+  escalated: 'Escalated', referred_authorities: 'Referred to the authorities', follow_up: 'Being followed up', resolved: 'Marked resolved', closed: 'Closed' }
+const PARTNER = { approved_partner: '✅ SafeArrival partner', under_review_not_approved: '⏳ Under review, NOT approved', suspended: '⛔ Partnership suspended' }
 const EMERGENCY = 'If you are in danger right now:\n🚓 Police (SAPS): 10111\n🚑 Ambulance: 10177\n📱 Any emergency from a mobile: 112\n\nMove to a busy, well-lit public area — inside the terminal if you are at the airport.'
+const ASK_AGAIN_MS = 12 * 3600e3 // ask for feedback at most once every 12 hours (visitors can always offer it from the menu)
 
 const text = (t) => ({ type: 'text', text: t })
 const buttons = (t, b) => ({ type: 'buttons', text: t, buttons: b.map(([id, title]) => ({ id, title: title.slice(0, 20) })) })
 const list = (t, button, rows) => ({ type: 'list', text: t, button, rows: rows.slice(0, 10).map(([id, title, description]) => ({ id, title: title.slice(0, 24), description: description?.slice(0, 72) })) })
 const rand = (n) => `R${Math.round(Number(n)).toLocaleString('en-ZA')}`
 const price = (o) => (o.price_type === 'agreed' ? `${rand(o.price_amount)} agreed price` : o.price_type === 'estimate' ? `${rand(o.price_min)}–${rand(o.price_max)} estimate` : 'price confirmed by provider')
+const demo = (r) => (r?.data_notice ? `\n\n_${r.data_notice}_` : '')
 
 // South Africa has no daylight saving: SAST is always UTC+2.
 const sastDate = (offsetDays = 0) => new Date(Date.now() + 2 * 3600e3 + offsetDays * 86400e3).toISOString().slice(0, 10)
@@ -53,12 +71,65 @@ function parseDate(s) {
   return Number.isNaN(Date.parse(d)) ? null : (!m[3] && d < sastDate() ? `${+year + 1}${d.slice(4)}` : d)
 }
 
+// ---------------------------------------------------------------- feedback
+// Short flows: one rating, one or two relevant questions, optional comment. Keys match the
+// backend's whitelist (public.submit_feedback); helpful/confident/use_again are their own columns.
+const RATING = [['fb:5', 'Excellent'], ['fb:4', 'Good'], ['fb:3', 'Okay'], ['fb:2', 'Poor'], ['fb:1', 'Very poor']]
+const SAFETY = [['fb:5', 'Very safe'], ['fb:4', 'Safe'], ['fb:3', 'Neutral'], ['fb:2', 'Unsafe'], ['fb:1', 'Very unsafe']]
+const FB_Q = {
+  overall_rating: ['scale', 'How would you rate your overall experience?', RATING],
+  safety_rating: ['scale', 'How safe did you feel during your {what}?', SAFETY],
+  helpful: ['yn', 'Did SafeArrival help you?'],
+  confident: ['yn', 'Did you feel more confident after using SafeArrival?'],
+  driver_matched: ['yn', 'Did the driver and vehicle match the booking?'],
+  price_respected: ['yn', 'Was the agreed price respected?'],
+  matched_description: ['yn', 'Did the accommodation match its advertised description?'],
+  checkin_safe: ['yn', 'Did you feel safe during check-in?'],
+  reporting_easy: ['yn', 'Was reporting easy?'],
+  next_steps_clear: ['yn', 'Were the next steps clear?'],
+  received_update: ['yn', 'Did you receive an update on your report?'],
+  communication_ok: ['yn', 'Were you satisfied with the communication?'],
+  comment: ['comment', 'Anything else you’d like to tell us? Type a short message, or tap Skip. Please don’t include names or phone numbers.'],
+}
+const FB_FLOW = {
+  pickup: ['safety_rating', 'driver_matched', 'price_respected', 'confident', 'comment'],
+  stay: ['safety_rating', 'overall_rating', 'matched_description', 'checkin_safe', 'comment'],
+  accom_check: ['overall_rating', 'helpful', 'confident', 'comment'],
+  provider_check: ['overall_rating', 'helpful', 'confident', 'comment'],
+  incident: ['overall_rating', 'reporting_easy', 'next_steps_clear', 'comment'],
+  incident_followup: ['overall_rating', 'received_update', 'communication_ok', 'comment'],
+  guidance: ['overall_rating', 'helpful', 'confident', 'comment'],
+}
+const FB_WHAT = { pickup: 'pickup', stay: 'stay' }
+const fbQuestion = (ctx) => FB_FLOW[ctx.fb.flow][ctx.fb.step]
+const home = (ctx) => (ctx.bookingToken ? 'BOOKED' : 'MENU')
+
+/** Remember a feedback offer for the interaction that just finished. With ask=true, returns true
+ *  (and records the ask) if we may prompt now; otherwise the offer only shows as a button/menu row. */
+function offer(ctx, o, ask = true) {
+  ctx.feedbackOffer = { returnTo: home(ctx), ...o }
+  if (!ask || (ctx.lastAskedAt && Date.now() - ctx.lastAskedAt < ASK_AGAIN_MS)) return false
+  ctx.lastAskedAt = Date.now()
+  return true
+}
+
+async function startFeedback(ctx, api) {
+  const o = ctx.feedbackOffer
+  if (!o) return { next: 'FEEDBACK_PICK' }
+  const r = await api.requestFeedback({ service: o.service, booking_token: o.booking_token, incident_token: o.incident_token,
+    hotel_slug: o.hotel_slug, provider_id: o.provider_id })
+  if (!r?.ref) return { next: o.returnTo, ctx: { ...ctx, feedbackOffer: null }, replies: [text('You’ve already given feedback on this. Thank you!')] }
+  return { next: 'FEEDBACK', ctx: { ...ctx, fb: { ref: r.ref, flow: o.flow, step: 0, data: { answers: {} }, returnTo: o.returnTo } },
+    replies: [text('Thank you! A few quick taps. Your answers are anonymous, and you can stop at any time by typing *menu*.')] }
+}
+
 // ---------------------------------------------------------------- prompts
 const prompts = {
   async WELCOME(ctx) {
     const back = ctx.bookingRef ? `\n\nWelcome back${ctx.name ? `, ${ctx.name.split(' ')[0]}` : ''}! Your booking is ${ctx.bookingRef}.` : ''
+    const fb = ctx.feedbackOffer ? `\n\nYou can still tell us how your ${ctx.feedbackOffer.label} went: choose *Give feedback*.` : ''
     return [
-      text(`Welcome to Cape Town! 🌍\n\nWe're here to help you arrange trusted transport from your arrival point to your accommodation.${ctx.hotelName ? `\n\nYou're connected to *${ctx.hotelName}*.` : ''}${back}\n\nWith our service, you can:\n1. Arrange trusted transport.\n2. Verify your driver before entering the vehicle.\n3. See your agreed transport price.\n4. Report suspicious activity or problems.`),
+      text(`Welcome to Cape Town! 🌍\n\nSafeArrival helps you stay safe with your accommodation and your transport.${ctx.hotelName ? `\n\nYou're connected to *${ctx.hotelName}*.` : ''}${back}\n\nWith our service, you can:\n1. Check an accommodation or transport company.\n2. Arrange trusted transport and verify your driver.\n3. See your agreed transport price.\n4. Report suspicious activity and follow up on your report.${fb}`),
       ...(await prompts.MENU(ctx)),
     ]
   },
@@ -67,7 +138,12 @@ const prompts = {
       ['arrange', 'Arrange transport', 'Book a trusted pickup to your accommodation'],
       ['view', 'View my booking', 'Status, price and driver details'],
       ['verify', 'Verify my driver', 'Check your driver before you get in'],
-      ['wrong', 'Something’s wrong', 'Report a problem or a suspicious driver'],
+      ['accom', 'Check accommodation', 'Is it a partner? Do the contact details match?'],
+      ['provider', 'Check transport company', 'Is this shuttle or transfer company a partner?'],
+      ['wrong', 'Something’s wrong', 'Report accommodation or transport problems'],
+      ['status', 'Check my report', 'Updates on a report you made'],
+      ['tips', 'Safety tips', 'Before you arrive, during your visit, after an incident'],
+      ['feedback', 'Give feedback', 'Tell us how SafeArrival worked for you'],
       ['emergency', 'Emergency assistance', 'Emergency numbers in South Africa'],
     ])]
   },
@@ -113,10 +189,54 @@ const prompts = {
       ['v:cannot_find', 'I can’t find my driver', 'Nobody at the meeting point'],
     ])]
   },
-  async INCIDENT_CATEGORY() { return [list('I’m sorry something is wrong. What happened?', 'Choose', CATEGORIES.map(([id, t]) => [`cat:${id}`, t]))] },
-  async INCIDENT_DESCRIPTION() { return [buttons('Tell us briefly what happened and where you are (type a message), or skip.', [['skip', 'Skip']])] },
+  async REPORT_SERVICE() { return [buttons('I’m sorry something is wrong. Is it about transport or accommodation?', [['rs:transport', 'Transport'], ['rs:accommodation', 'Accommodation']])] },
+  async INCIDENT_CATEGORY(ctx) {
+    return ctx.reportService === 'accommodation'
+      ? [list('What happened with the accommodation?', 'Choose', ACC_CATEGORIES.map(([id, t, d]) => [`cat:${id}`, t, d]))]
+      : [list('What happened?', 'Choose', CATEGORIES.map(([id, t]) => [`cat:${id}`, t]))]
+  },
+  async INCIDENT_DESCRIPTION(ctx) {
+    const acc = ctx.reportService === 'accommodation' && !ctx.subjectName
+    return [buttons(`Tell us briefly what happened and where you are${acc ? ', including the name of the accommodation' : ''} (type a message), or skip.`, [['skip', 'Skip']])]
+  },
   async INCIDENT_URGENT() { return [buttons('Do you need immediate assistance?', [['urgent:yes', 'Yes, I need help now'], ['urgent:no', 'No, I am safe']])] },
-  async COMPLETED() { return [buttons('Enjoy Cape Town! If anything goes wrong, message us any time.', [['wrong', 'Something’s wrong'], ['menu', 'Main menu']])] },
+  async COMPLETED(ctx) {
+    return [buttons(`Enjoy Cape Town! If anything goes wrong, message us any time.${ctx.feedbackOffer ? ' After your trip, tap *Give feedback* to tell us how it went.' : ''}`,
+      [['wrong', 'Something’s wrong'], ...(ctx.feedbackOffer ? [['fb:start', 'Give feedback']] : []), ['menu', 'Main menu']])]
+  },
+  async ACCOM_QUERY() { return [text('Type the name of the accommodation. You can add the phone number you were given to check it, e.g. _Saltwater Lodge +27 21 000 0101_.')] },
+  async PROVIDER_QUERY() { return [text('Type the name of the transport or shuttle company, e.g. _Cape Town Trusted Shuttle_.')] },
+  async CHECK_DONE() { return [buttons('What would you like to do next?', [['fb:start', 'Give feedback'], ['report', 'Report a concern'], ['menu', 'Main menu']])] },
+  async STATUS_QUERY() { return [text('Paste the tracking link from your report message (it ends in a long code), or type *menu* to go back.')] },
+  async TIPS_STAGE() {
+    return [list('Safety tips for which stage of your visit?', 'Choose', [
+      ['tips:before_arrival', 'Before you arrive', 'Accommodation checks, booking scams, transport'],
+      ['tips:during_visit', 'During your visit', 'Verifying drivers, payments, check-in'],
+      ['tips:after_incident', 'After an incident', 'Reporting, references, support'],
+    ])]
+  },
+  async FEEDBACK_PICK(ctx) {
+    return [list('What would you like to give feedback on?', 'Choose', [
+      ['fbk:stay', 'My accommodation', 'How safe and as-described was your stay?'],
+      ...(ctx.bookingToken ? [['fbk:pickup', 'My transport', 'Your pickup and driver']] : []),
+      ['fbk:general', 'SafeArrival in general', 'Was it easy and useful?'],
+    ])]
+  },
+  async FEEDBACK_ASK(ctx) {
+    return [buttons(`Could you spare 30 seconds to rate this ${ctx.feedbackOffer?.label ?? 'experience'}? It’s optional and anonymous.`,
+      [['fb:start', 'Give feedback'], ['fb:later', 'Not now']])]
+  },
+  async FEEDBACK(ctx) {
+    const key = fbQuestion(ctx)
+    const [kind, q, rows] = FB_Q[key]
+    const n = `(${ctx.fb.step + 1}/${FB_FLOW[ctx.fb.flow].length}) `
+    if (kind === 'scale') {
+      return [list(n + q.replace('{what}', FB_WHAT[ctx.fb.flow] ?? 'experience'), 'Choose',
+        [...rows, ...(ctx.fb.step === 0 ? [['fb:later', 'Not now']] : [])])]
+    }
+    if (kind === 'yn') return [buttons(n + q, [['fb:yes', 'Yes'], ['fb:partly', 'Partly'], ['fb:no', 'No']])]
+    return [buttons(n + q, [['fb:skip', 'Skip']])]
+  },
 }
 
 // ---------------------------------------------------------------- handlers
@@ -142,11 +262,95 @@ async function startVerify(ctx, api) {
 }
 
 async function submitIncident(ctx, api, urgent) {
+  const acc = ctx.reportService === 'accommodation'
   const r = await api.reportIncident({ booking_token: ctx.bookingToken, hotel_slug: ctx.hotelSlug, category: ctx.category,
-    description: ctx.description, needs_immediate_help: urgent, location_text: ctx.pickupName })
-  const msgs = [text(`Your report has been received.\n\nReference: *${r.reference}*\n\n${ctx.bookingToken ? 'Your hotel has been notified. ' : ''}We will keep you updated as your report progresses.\nTrack it here: ${api.incidentLink(r.access_token)}\n\nThis is an internal reference, not a police case number.`)]
+    description: ctx.description, needs_immediate_help: urgent, location_text: acc ? null : ctx.pickupName,
+    subject_name: acc ? ctx.subjectName : null, subject_hotel_slug: acc ? ctx.subjectSlug : null })
+  const msgs = [text(`Your report has been received.\n\nReference: *${r.reference}*\n\n${acc ? 'Our safety team will review it. ' : ctx.bookingToken ? 'Your hotel has been notified. ' : ''}We will keep you updated as your report progresses. You can check it any time with *Check my report*.\nTrack it here: ${api.incidentLink(r.access_token)}\n\nThis is an internal reference, not a police case number.`)]
   if (urgent) msgs.unshift(text(EMERGENCY))
-  return { next: ctx.bookingToken ? 'BOOKED' : 'MENU', ctx: { ...ctx, category: null, description: null, lastIncidentToken: r.access_token }, replies: msgs }
+  const c = { ...ctx, category: null, description: null, reportService: null, subjectName: null, subjectSlug: null, lastIncidentToken: r.access_token,
+    incidentTokens: [r.access_token, ...(ctx.incidentTokens ?? [])].slice(0, 5) }
+  // Never ask for feedback when the visitor said they need help now.
+  const ask = !urgent && offer(c, { service: 'incident', flow: 'incident', incident_token: r.access_token, label: 'report' })
+  return { next: ask ? 'FEEDBACK_ASK' : home(c), ctx: c, replies: msgs }
+}
+
+async function accommodationCheck(t, ctx, api) {
+  const phone = t.match(/\+?\d[\d\s()-]{6,}\d/)?.[0] ?? ''
+  const name = t.replace(phone, '').replace(/[\s,;:.-]+$/, '').trim()
+  if (name.length < 3) return { invalid: 'Please type at least 3 letters of the accommodation’s name.' }
+  const r = await api.checkAccommodation({ name, phone })
+  const lines = r.matches.slice(0, 3).map((m) => {
+    const l = [`*${m.name}* (${m.area}) — ${PARTNER[m.safearrival_status] ?? m.safearrival_status}`]
+    if (m.official_contacts) l.push(`📍 ${m.official_contacts.address ?? '—'}\n📞 ${m.official_contacts.phone ?? '—'}`)
+    if (m.contact_check === 'match') l.push('✅ The number you were given matches the official number we hold.')
+    if (m.contact_check === 'mismatch') l.push('⚠️ The number you were given does *NOT* match the official number we hold.')
+    return l.join('\n')
+  })
+  const top = r.matches[0]
+  const msg = [...(r.matches.length ? [] : [`We have no record of “${name}”.`]), ...lines, ...r.warnings.map((w) => `⚠️ ${w}`),
+    `\nTips:\n• ${r.guidance.slice(0, 2).join('\n• ')}`, `\n_Partner status means we hold verified contact details; it is not a guarantee of safety._`].join('\n\n')
+  const c = { ...ctx, lastCheck: { service: 'accommodation' }, subjectName: top?.name ?? name, subjectSlug: top?.slug ?? null }
+  offer(c, { service: 'accommodation', flow: 'accom_check', hotel_slug: top?.slug, label: 'accommodation check', returnTo: 'MENU' }, false)
+  return { next: 'CHECK_DONE', ctx: c, replies: [text(msg + demo(r))] }
+}
+
+async function providerCheck(t, ctx, api) {
+  const name = t.trim()
+  if (name.length < 3) return { invalid: 'Please type at least 3 letters of the company’s name.' }
+  const r = await api.checkProvider({ provider_name: name.slice(0, 120) })
+  const lines = r.matches.slice(0, 3).map((m) => [`*${m.name}* — ${PARTNER[m.safearrival_status] ?? m.safearrival_status}`, m.meaning,
+    m.contacts ? `📞 ${m.contacts.phone ?? '—'}${m.contacts.safety_contact ? `\n🛡️ Safety contact: ${m.contacts.safety_contact}` : ''}` : null,
+    m.service_coverage?.length ? `Areas: ${m.service_coverage.join(', ')}` : null].filter(Boolean).join('\n'))
+  const msg = [...(lines.length ? lines : [`“${name}” is not a SafeArrival partner.`]), r.note,
+    'Whoever the company is, the driver should match your booking. With a SafeArrival booking, the driver must say your code first.'].join('\n\n')
+  const top = r.matches[0]
+  const c = { ...ctx, lastCheck: { service: 'transport' }, subjectName: top?.name ?? name, subjectSlug: null }
+  offer(c, { service: 'transport', flow: 'provider_check', provider_id: top?.provider_id, label: 'transport company check', returnTo: 'MENU' }, false)
+  return { next: 'CHECK_DONE', ctx: c, replies: [text(msg + demo(r))] }
+}
+
+async function showReports(tokens, ctx, api) {
+  const out = []; let followedUp = null
+  for (const tok of tokens.slice(0, 3)) {
+    const r = await api.getIncident(tok)
+    const i = r.incident
+    const latest = r.updates.slice(-2).map((u) => `• ${u.message}`).join('\n')
+    out.push(`*${i.reference}* — ${INCIDENT_STATUS[i.status] ?? i.status}\nReported ${api.fmtTime(i.created_at)}\n${latest}`)
+    if (!followedUp && ['follow_up', 'escalated', 'referred_authorities', 'resolved', 'closed'].includes(i.status)) followedUp = tok
+  }
+  const c = { ...ctx, incidentTokens: [...new Set([...tokens, ...(ctx.incidentTokens ?? [])])].slice(0, 5) }
+  const replies = [text(`${out.join('\n\n')}\n\nThese are SafeArrival references, not police case numbers. In an emergency call 10111 or 112.`)]
+  const ask = followedUp && offer(c, { service: 'incident', flow: 'incident_followup', incident_token: followedUp, label: 'report follow-up' })
+  return { next: ask ? 'FEEDBACK_ASK' : home(c), ctx: c, replies }
+}
+
+const YN = { 'fb:yes': 'yes', 'fb:partly': 'partly', 'fb:no': 'no', yes: 'yes', partly: 'partly', no: 'no' }
+async function answerFeedback({ id, text: t }, ctx, api) {
+  if (id === 'fb:later') return { next: ctx.fb.returnTo, ctx: { ...ctx, fb: null }, replies: [text('No problem. You can give feedback later from the menu.')] }
+  const key = fbQuestion(ctx)
+  const kind = FB_Q[key][0]
+  const data = { ...ctx.fb.data, answers: { ...ctx.fb.data.answers } }
+  if (kind === 'scale') {
+    const n = +(id?.match(/^fb:([1-5])$/)?.[1] ?? t?.trim().match(/^[1-5]$/)?.[0] ?? NaN)
+    if (!n) return { invalid: 'Please choose an option from the list (or type 1–5).' }
+    data[key] = n
+  } else if (kind === 'yn') {
+    const v = YN[id] ?? YN[t?.trim().toLowerCase()]
+    if (!v) return { invalid: 'Please tap Yes, Partly or No.' }
+    if (['helpful', 'confident', 'use_again'].includes(key)) data[key] = v
+    else data.answers[key] = v
+  } else if (id !== 'fb:skip') {
+    if (!t?.trim()) return { invalid: 'Type a short message, or tap Skip.' }
+    data.comment = t.trim().slice(0, 1000)
+  }
+  const fb = { ...ctx.fb, data, step: ctx.fb.step + 1 }
+  if (fb.step < FB_FLOW[fb.flow].length) return { next: 'FEEDBACK', ctx: { ...ctx, fb } }
+
+  await api.submitFeedback({ ref: fb.ref, ...data })
+  const negative = data.safety_rating <= 2 || data.overall_rating <= 2 || Object.values(data.answers).includes('no')
+  return { next: fb.returnTo, ctx: { ...ctx, fb: null, feedbackOffer: null, lastAskedAt: Date.now() },
+    replies: [text(`Thank you for your feedback! 🙏${negative ? '\n\nI’m sorry it wasn’t better. Feedback is anonymous and isn’t a report: if something unsafe happened, choose *Something’s wrong* so our safety team can follow up.' : ''}`)] }
 }
 
 const handlers = {
@@ -154,8 +358,13 @@ const handlers = {
     if (id === 'arrange') return { next: ctx.hotelSlug ? 'PICKUP' : 'HOTEL_SELECTION', replies: ctx.hotelSlug ? [text(`Booking with *${ctx.hotelName}*.`)] : [] }
     if (id === 'view') return viewBooking(ctx, api)
     if (id === 'verify') return startVerify(ctx, api)
-    if (id === 'wrong') return { next: 'INCIDENT_CATEGORY' }
-    if (id === 'emergency') return { next: ctx.bookingToken ? 'BOOKED' : 'MENU', replies: [text(EMERGENCY)] }
+    if (id === 'wrong') return { next: 'REPORT_SERVICE', ctx: { ...ctx, subjectName: null, subjectSlug: null } }
+    if (id === 'accom') return { next: 'ACCOM_QUERY' }
+    if (id === 'provider') return { next: 'PROVIDER_QUERY' }
+    if (id === 'status') return ctx.incidentTokens?.length ? showReports(ctx.incidentTokens, ctx, api) : { next: 'STATUS_QUERY' }
+    if (id === 'tips') return { next: 'TIPS_STAGE' }
+    if (id === 'feedback') return ctx.feedbackOffer ? startFeedback(ctx, api) : { next: 'FEEDBACK_PICK' }
+    if (id === 'emergency') return { next: home(ctx), replies: [text(EMERGENCY)] }
     return { invalid: 'Please choose an option from the menu.' }
   },
   async HOTEL_SELECTION({ id }, ctx, api) {
@@ -216,7 +425,6 @@ const handlers = {
   async BOOKED({ id }, ctx, api) {
     if (id === 'view') return viewBooking(ctx, api)
     if (id === 'verify') return startVerify(ctx, api)
-    if (id === 'wrong') return { next: 'INCIDENT_CATEGORY' }
     return handlers.MENU({ id }, ctx, api)
   },
   async VERIFICATION({ id, text: t }, ctx, api) {
@@ -233,12 +441,21 @@ const handlers = {
     const outcome = id?.slice(2)
     if (!['verified', 'code_mismatch', 'details_mismatch', 'wrong_vehicle', 'cannot_find'].includes(outcome)) return { invalid: 'Please choose one of the options.' }
     await api.recordVerification(ctx.bookingToken, outcome)
-    if (outcome === 'verified') return { next: 'COMPLETED', replies: [text('Driver verified ✅ Have a safe trip!')] }
-    return { next: 'INCIDENT_DESCRIPTION', ctx: { ...ctx, category: OUTCOME_CATEGORY[outcome] },
+    if (outcome === 'verified') {
+      const c = { ...ctx }
+      offer(c, { service: 'transport', flow: 'pickup', booking_token: ctx.bookingToken, label: 'pickup', returnTo: 'COMPLETED' }, false)
+      return { next: 'COMPLETED', ctx: c, replies: [text('Driver verified ✅ Have a safe trip!')] }
+    }
+    return { next: 'INCIDENT_DESCRIPTION', ctx: { ...ctx, category: OUTCOME_CATEGORY[outcome], reportService: 'transport' },
       replies: [text('*Do not enter the vehicle.* Stay inside the terminal or another busy public place. We are alerting your hotel and the transport provider.')] }
   },
+  async REPORT_SERVICE({ id }, ctx) {
+    if (id === 'rs:transport' || id === 'rs:accommodation') return { next: 'INCIDENT_CATEGORY', ctx: { ...ctx, reportService: id.slice(3) } }
+    return { invalid: 'Please tap Transport or Accommodation.' }
+  },
   async INCIDENT_CATEGORY({ id }, ctx) {
-    const c = CATEGORIES.find(([k]) => `cat:${k}` === id)
+    const cats = ctx.reportService === 'accommodation' ? ACC_CATEGORIES : CATEGORIES
+    const c = cats.find(([k]) => `cat:${k}` === id)
     return c ? { next: 'INCIDENT_DESCRIPTION', ctx: { ...ctx, category: c[0] } } : { invalid: 'Please choose what happened from the list.' }
   },
   async INCIDENT_DESCRIPTION({ id, text: t }, ctx) {
@@ -251,12 +468,50 @@ const handlers = {
     return submitIncident(ctx, api, id === 'urgent:yes')
   },
   async COMPLETED({ id }, ctx, api) { return handlers.BOOKED({ id }, ctx, api) },
+  async ACCOM_QUERY({ id, text: t }, ctx, api) { return t && !id ? accommodationCheck(t, ctx, api) : { invalid: 'Type the accommodation’s name.' } },
+  async PROVIDER_QUERY({ id, text: t }, ctx, api) { return t && !id ? providerCheck(t, ctx, api) : { invalid: 'Type the company’s name.' } },
+  async CHECK_DONE({ id }, ctx, api) {
+    if (id === 'report') return { next: 'INCIDENT_CATEGORY', ctx: { ...ctx, reportService: ctx.lastCheck?.service ?? 'transport' } }
+    return handlers.MENU({ id }, ctx, api)
+  },
+  async STATUS_QUERY({ text: t = '' }, ctx, api) {
+    const tok = t.match(/[0-9a-f]{20,64}/i)?.[0]?.toLowerCase()
+    if (!tok) return { invalid: 'I couldn’t find a tracking code in that. Paste the full tracking link from your report message.' }
+    try { await api.getIncident(tok) } catch { return { invalid: 'No report matches that tracking code.' } }
+    return showReports([tok], ctx, api)
+  },
+  async TIPS_STAGE({ id }, ctx, api) {
+    const stage = id?.startsWith('tips:') && id.slice(5)
+    if (!['before_arrival', 'during_visit', 'after_incident'].includes(stage)) return { invalid: 'Please choose a stage from the list.' }
+    const r = await api.guidance(stage)
+    const body = r.advice.map((a) => `*${a.title}*\n${a.advice}`).join('\n\n')
+    const c = { ...ctx }
+    const ask = offer(c, { service: 'guidance', flow: 'guidance', label: 'safety tips', returnTo: home(ctx) })
+    return { next: ask ? 'FEEDBACK_ASK' : home(c), ctx: c,
+      replies: [text(`${body}\n\nIn an emergency call 10111 (police), 10177 (ambulance) or 112 from a mobile. SafeArrival is not an emergency service.`)] }
+  },
+  async FEEDBACK_PICK({ id }, ctx, api) {
+    const o = { 'fbk:stay': { service: 'accommodation', flow: 'stay', hotel_slug: ctx.hotelSlug, label: 'stay' },
+      'fbk:pickup': ctx.bookingToken && { service: 'transport', flow: 'pickup', booking_token: ctx.bookingToken, label: 'pickup' },
+      'fbk:general': { service: 'guidance', flow: 'guidance', label: 'experience' } }[id]
+    if (!o) return { invalid: 'Please choose an option from the list.' }
+    return startFeedback({ ...ctx, feedbackOffer: { returnTo: home(ctx), ...o } }, api)
+  },
+  async FEEDBACK_ASK({ id }, ctx, api) {
+    if (id === 'fb:later') return { next: ctx.feedbackOffer?.returnTo ?? home(ctx), replies: [text('No problem. You can give feedback later from the menu.')] }
+    return handlers.BOOKED({ id }, ctx, api)
+  },
+  async FEEDBACK(input, ctx, api) { return answerFeedback(input, ctx, api) },
 }
 
+// Free-text states: keywords like "hi" or "staff" are answers there, not commands.
+const typing = (state, ctx) => ['INCIDENT_DESCRIPTION', 'NAME', 'ACCOM_QUERY', 'PROVIDER_QUERY', 'STATUS_QUERY'].includes(state)
+  || (state === 'FEEDBACK' && FB_Q[fbQuestion(ctx)]?.[0] === 'comment')
+
 const GLOBAL = [
-  [/^(hi|hello|hey|start|menu|main menu|restart)\b/i, async (ctx) => ({ next: 'WELCOME', ctx: { ...ctx, category: null, option: null } })],
-  [/\b(emergency|sos|police|ambulance|danger)\b/i, async (ctx) => ({ next: ctx.bookingToken ? 'BOOKED' : 'MENU', replies: [text(EMERGENCY)] })],
-  [/\b(human|agent|person|staff|call me|speak to)\b/i, async (ctx) => ({ next: ctx.bookingToken ? 'BOOKED' : 'MENU',
+  [/^(hi|hello|hey|start|menu|main menu|restart)\b/i, async (ctx) => ({ next: 'WELCOME', ctx: { ...ctx, category: null, option: null, fb: null } })],
+  [/\b(emergency|sos|police|ambulance|danger)\b/i, async (ctx) => ({ next: home(ctx), replies: [text(EMERGENCY)] })],
+  [/\b(human|agent|person|staff|call me|speak to)\b/i, async (ctx) => ({ next: home(ctx),
     replies: [text(`A person can help. ${ctx.hotelName ? `Call ${ctx.hotelName}'s front desk${ctx.hotelPhone ? ` on ${ctx.hotelPhone}` : ''}` : 'Your hotel front desk can help directly'}, or reply here and our safety team will follow up during support hours.\n\nIn an emergency call 10111 or 112.`)] })],
 ]
 
@@ -267,10 +522,11 @@ export async function handle(session, input, api) {
   const replies = []
   try {
     let result
-    if (input?.id === 'menu') result = { next: 'MENU' }
+    if (input?.id === 'menu') result = { next: 'MENU', ctx: { ...ctx, fb: null } }
+    else if (input?.id === 'fb:start') result = await startFeedback(ctx, api)
     else if (input?.text && !input.id) {
       const g = GLOBAL.find(([re]) => re.test(input.text.trim()))
-      if (g && !['INCIDENT_DESCRIPTION', 'NAME'].includes(state)) result = await g[1](ctx)
+      if (g && !typing(state, ctx)) result = await g[1](ctx)
     }
     if (!result && (state === 'WELCOME' || !session)) result = { next: 'WELCOME' }
     if (!result) result = handlers[state] ? await handlers[state](input ?? {}, ctx, api) : { next: 'WELCOME' }
@@ -287,6 +543,7 @@ export async function handle(session, input, api) {
   } catch (e) {
     replies.push(text(`Sorry — ${e.message ?? 'something went wrong'}.`), ...(await prompts.MENU(ctx)))
     state = ctx.bookingToken ? 'BOOKED' : 'MENU'
+    ctx = { ...ctx, fb: null }
   }
   return { session: { state, ctx }, replies }
 }

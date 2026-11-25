@@ -58,7 +58,7 @@ SafeArrival's safety tools are also available to AI assistants through a public 
 
 **`https://safearrival-mcp.vercel.app/mcp`** (Streamable HTTP, no sign-in, rate-limited)
 
-The 11 tools cover area and route reports, alerts, transport-provider and driver checks, pickup guidance, emergency numbers, incident reporting and alert subscriptions (monitored by the backend, sent only for incidents the safety team has verified; managed at `/alerts/<token>`). Every result states its verification status, source, timestamps, location precision and limitations. There are no safety scores. Raw traveller descriptions never leave the database.
+The 15 tools cover area and route reports, alerts, accommodation, transport-provider and driver checks, report status, safety guidance by stage of the visit, visitor feedback, pickup guidance, emergency numbers, incident reporting and alert subscriptions (monitored by the backend, sent only for incidents the safety team has verified; managed at `/alerts/<token>`). Every result states its verification status, source, timestamps, location precision and limitations. There are no safety scores. Raw traveller descriptions never leave the database.
 
 | | |
 |---|---|

@@ -21,7 +21,7 @@ connecting. Plans and menus change often, so check OpenAI's help article
 2. Name: `SafeArrival`. Description: *South African tourist transport-safety tools*.
 3. Connection URL: `https://safearrival-mcp.vercel.app/mcp` (include `/mcp`). Authentication: **none**.
 4. Read the risk warning → **I understand and want to continue** → **Create as a plugin**.
-5. Check that the 11 tools are listed, then install.
+5. Check that the 15 tools are listed, then install.
 
 On older workspace layouts the path is **Workspace settings → Apps → Create → Scan Tools → Create**. Drafts show a
 **Dev** label until an admin publishes them.

@@ -61,13 +61,13 @@ function Overview() {
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         {[['Honest by design', 'Every result is labelled verified, unverified or advisory, with timestamps, location precision and limitations. There are no safety scores, and no reports never means “safe”.'],
           ['Private by default', 'Raw traveller descriptions never leave the database, locations are approximate, and booking codes are never returned. Calls are logged without arguments or IPs.'],
-          ['Built to be reused', 'Eleven tools on an open protocol, plus an Agent Skill that teaches agents how to explain the results. Bring your own assistant.']].map(([t, d]) => (
+          ['Built to be reused', 'Fifteen tools on an open protocol, plus an Agent Skill that teaches agents how to explain the results. Bring your own assistant.']].map(([t, d]) => (
           <div key={t} className="rounded-xl border border-slate-200 bg-white p-4"><p className="font-semibold">{t}</p><p className="mt-1 text-sm text-slate-600">{d}</p></div>
         ))}
       </div>
       <H2>Start here</H2>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {[['installation', 'Connect ChatGPT, Claude or your IDE', 'Click paths, plan requirements, configs'], ['tools', 'Browse the 11 tools', 'Live from the server: inputs, limits, annotations'],
+        {[['installation', 'Connect ChatGPT, Claude or your IDE', 'Click paths, plan requirements, configs'], ['tools', 'Browse the 15 tools', 'Live from the server: inputs, limits, annotations'],
           ['api', 'Call it from code', 'curl, JavaScript SDK, try read-only tools live'], ['skill', 'Install the Agent Skill', 'Teach your agent the safety rules']].map(([to, t, d]) => (
           <Link key={to} to={`/developers/${to}`} className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 hover:border-teal">
             <span><span className="font-medium">{t}</span><span className="block text-sm text-muted">{d}</span></span><ArrowRight className="size-4 text-muted group-hover:text-teal-ink" aria-hidden />
@@ -186,7 +186,7 @@ function Install() {
       <Note>Custom MCP servers need <strong>ChatGPT Business or Enterprise/Edu</strong> (full MCP) on the web, set up by an admin or an authorised member. <strong>Pro</strong> can use read-only tools. <strong>Free and Plus can’t add custom servers.</strong> Plans change often, so check OpenAI’s help article first.</Note>
       <ol className="mt-3 list-decimal space-y-1 pl-5 text-[15px] text-slate-700">
         <li>Go to <strong>chatgpt.com/plugins → + → Add custom MCP server</strong>.</li>
-        <li>Enter the endpoint above, including <code>/mcp</code>, with no authentication. Then <strong>Create as a plugin</strong> and check the 11 tools.</li>
+        <li>Enter the endpoint above, including <code>/mcp</code>, with no authentication. Then <strong>Create as a plugin</strong> and check the 15 tools.</li>
         <li>In a new chat, type <strong>@SafeArrival</strong> and ask your question. @-mention it again for follow-ups.</li>
       </ol>
       <H2>Claude Code</H2>

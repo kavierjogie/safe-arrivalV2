@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   AlertOctagon, BarChart3, Bell, Bot, Car, ClipboardList, FileClock, Handshake, IdCard, LayoutDashboard, LogOut, Menu,
-  MessageCircle, QrCode, ShieldCheck, X,
+  MessageCircle, MessageSquareText, QrCode, ShieldCheck, Target, X,
 } from 'lucide-react'
 import { ConnectionIndicator, Logo } from '../common/ui'
 import { useApp, useTables } from '../../context/AppContext'
@@ -49,7 +49,8 @@ const NAV = {
     ['/provider/incidents', 'Incidents', AlertOctagon]],
   driver: [['/driver', 'My trips', Car]],
   admin: [['/admin', 'Overview', LayoutDashboard], ['/admin/incidents', 'Incidents', AlertOctagon], ['/admin/partners', 'Partners', Handshake],
-    ['/admin/analytics', 'Analytics', BarChart3], ['/admin/ai', 'AI integrations', Bot], ['/admin/audit', 'Audit log', FileClock]],
+    ['/admin/analytics', 'Analytics', BarChart3], ['/admin/feedback', 'Feedback', MessageSquareText],
+    ['/admin/goals', 'Goals & targets', Target], ['/admin/ai', 'AI integrations', Bot], ['/admin/audit', 'Audit log', FileClock]],
 }
 
 function useOrgName() {

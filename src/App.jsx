@@ -35,6 +35,8 @@ const AdminPartnersPage = lazy(() => import('./pages/admin/AdminPartnersPage'))
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'))
 const AdminAuditPage = lazy(() => import('./pages/admin/AdminAuditPage'))
 const AdminAiPage = lazy(() => import('./pages/admin/AdminAiPage'))
+const AdminFeedbackPage = lazy(() => import('./pages/admin/AdminFeedbackPage'))
+const AdminGoalsPage = lazy(() => import('./pages/admin/AdminGoalsPage'))
 const DevelopersPage = lazy(() => import('./pages/developers/DevelopersPage'))
 
 /** Role-based route guard. RLS enforces the same rules on the server. */
@@ -105,6 +107,8 @@ export default function App() {
           <Route path="/admin/incidents" element={<AdminIncidentsPage />} />
           <Route path="/admin/partners" element={<AdminPartnersPage />} />
           <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+          <Route path="/admin/feedback" element={<AdminFeedbackPage />} />
+          <Route path="/admin/goals" element={<AdminGoalsPage />} />
           <Route path="/admin/ai" element={<AdminAiPage />} />
           <Route path="/admin/audit" element={<AdminAuditPage />} />
         </Route>

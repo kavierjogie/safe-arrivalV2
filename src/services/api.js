@@ -34,7 +34,8 @@ const clean = (e) => new ApiError((e?.message ?? String(e)).replace(/^ERROR:\s*/
 
 // Reads must be listed here: any other RPC is treated as a write and triggers a refresh of every
 // live view, so a read missing from this list would make useLive() re-request it forever.
-const READ_ONLY = new Set(['get_trip', 'get_incident', 'get_alert_subscription', 'admin_ai_overview'])
+const READ_ONLY = new Set(['get_trip', 'get_incident', 'get_alert_subscription', 'admin_ai_overview', 'safety_guidance',
+  'admin_safety_analytics', 'admin_feedback_report', 'admin_goals'])
 const toParam = (v) => (Array.isArray(v) ? `{${v.join(',')}}` : v !== null && typeof v === 'object' ? JSON.stringify(v) : v)
 const normalise = (row) => Object.fromEntries(Object.entries(row).map(([k, v]) => [k, v instanceof Date ? v.toISOString() : v]))
 
