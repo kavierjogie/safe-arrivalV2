@@ -32,7 +32,37 @@ export const INCIDENT_CATEGORY = {
   intimidation: 'Driver threatening or intimidating me',
   cannot_locate_driver: 'I cannot locate my driver',
   other: 'Other incident',
+  listing_mismatch: 'Accommodation not as advertised',
+  booking_payment_fraud: 'Suspicious booking or payment request',
+  host_identity_mismatch: 'Provider identity or contacts inconsistent',
+  accommodation_unsafe: 'Felt unsafe at accommodation',
+  accommodation_other: 'Other accommodation problem',
 }
+
+export const SERVICE = { accommodation: 'Accommodation', transport: 'Transport', incident: 'Incident reporting', guidance: 'Safety guidance' }
+export const CHANNEL = { whatsapp: 'WhatsApp', mcp: 'ChatGPT / MCP' }
+export const SAFETY_SCALE = { 1: 'Very unsafe', 2: 'Unsafe', 3: 'Neutral', 4: 'Safe', 5: 'Very safe' }
+export const FEEDBACK_QUESTION = {
+  driver_matched: 'Driver matched the booking', vehicle_matched: 'Vehicle matched', pickup_safe: 'Felt safe at pickup',
+  price_respected: 'Agreed price respected', journey_safe: 'Felt safe during the journey',
+  matched_description: 'Accommodation matched its description', provider_consistent: 'Provider identity/contacts consistent',
+  checkin_safe: 'Felt safe at check-in', payment_clear: 'Payment instructions clear', felt_uncomfortable: 'Something felt uncomfortable',
+  reporting_easy: 'Reporting was easy', next_steps_clear: 'Next steps were clear', received_update: 'Received an update',
+  communication_ok: 'Satisfied with communication', easy_to_use: 'Easy to use', safer_decision: 'Helped a safer decision',
+}
+// [label, unit, higher-is-better default]
+export const KPI = {
+  accommodation_verification_rate: ['Accommodation verification rate', '%'],
+  transport_verification_rate: ['Transport verification rate', '%'],
+  incident_ack_minutes: ['Incident acknowledgement time', 'min'],
+  incident_followup_rate: ['Incident follow-up rate', '%'],
+  avg_safety_rating: ['Average perceived safety rating', '/5'],
+  avg_overall_rating: ['Average overall experience rating', '/5'],
+  confidence_rate: ['Visitors who felt more confident', '%'],
+  feedback_response_rate: ['Feedback response rate', '%'],
+}
+export const GOAL_STATUS = { achieved: ['Achieved', 'green'], on_track: ['On track', 'green'], at_risk: ['At risk', 'amber'], missed: ['Missed', 'red'],
+  not_started: ['Not started', 'slate'], no_data: ['No data yet', 'slate'] }
 
 export const INCIDENT_STATUS = {
   received: ['Report received', 'Your report is logged and has an internal reference.'],
