@@ -19,6 +19,10 @@ Streamable HTTP (MCP 2026-07-28, with stateless fallback for 2025-era clients) a
 | `verify_transport_provider` | – | SafeArrival partner status, contacts (approved only), service areas |
 | `verify_driver` | records a code check | Booking token + what the driver said / plate / name → match or mismatch only |
 | `report_safety_incident` | yes | Unverified report to the safety team; needs `user_confirmed: true`; 3/hour |
+| `check_accommodation` | logs a check | Accommodation partner status, official contacts, phone-number consistency check |
+| `get_incident_status` | – (may offer feedback) | Status and public updates of the caller's own report (tracking token) |
+| `get_safety_guidance` | – | Approved guidance before arrival, during the visit, after an incident |
+| `submit_feedback` | yes | Optional anonymous feedback after a result that offered `feedback.ref` |
 | `find_emergency_services` | – | SA emergency numbers (10111, 10177, 112, …) plus local numbers |
 | `get_pickup_guidance` | – | Designated pickup point, verification steps, impersonation warnings |
 | `get_travel_safety_advice` | – | Curated, dated precautions + reported issues + active alerts |

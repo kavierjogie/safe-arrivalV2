@@ -11,7 +11,7 @@ About 8 minutes. Every record in the demo deployment is **fictional**, and the a
 
 | # | Do / say | What happens | Point out |
 |---|---|---|---|
-| 1 | Open a new chat and switch on **SafeArrival** (+ → Connectors) | The assistant now has 11 SafeArrival tools | No new app to install. It's the assistant the tourist already uses |
+| 1 | Open a new chat and switch on **SafeArrival** (+ → Connectors) | The assistant now has 15 SafeArrival tools | No new app to install. It's the assistant the tourist already uses |
 | 2 | *"I land at Cape Town International tonight. Is the area around the airport safe?"* | The assistant calls `check_area_safety` (and often `get_safety_alerts`) | — |
 | 3–5 | Read the answer | Counts of verified incidents, unverified reports and the advisory; the common issue (cash "airport fee"); precautions; the DEMO DATA notice | **No "safe/unsafe" verdict.** Verified and unverified items are labelled. "No reports ≠ safe" |
 | 6 | *"How can I verify my shuttle driver when I arrive?"* | `get_pickup_guidance`, sometimes also `verify_transport_provider` | — |

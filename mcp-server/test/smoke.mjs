@@ -12,7 +12,7 @@ for (const mode of [{ pin: '2026-07-28' }, 'legacy']) {
   const client = new Client({ name: 'safearrival-smoke', version: '1.0.0' }, { versionNegotiation: { mode } })
   await client.connect(new StreamableHTTPClientTransport(url))
   const era = typeof mode === 'string' ? '2025' : mode.pin
-  await check(`[${era}] tools/list`, async () => assert.equal((await client.listTools()).tools.length, 11))
+  await check(`[${era}] tools/list`, async () => assert.equal((await client.listTools()).tools.length, 15))
   await check(`[${era}] check_area_safety near CPT airport`, async () => {
     const r = await client.callTool({ name: 'check_area_safety', arguments: { latitude: -33.9697, longitude: 18.5968, radius_km: 3, location_name: 'Cape Town International Airport' } })
     assert.ok(!r.isError, r.content?.[0]?.text)

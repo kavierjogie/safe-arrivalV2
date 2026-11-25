@@ -77,7 +77,7 @@ node test/smoke.mjs  https://safearrival-mcp.vercel.app/mcp  # read-only, both p
 node test/parity.mjs https://safearrival-mcp.vercel.app/mcp  # deployed tools == local src/server.js
 ```
 Then on the website check:
-- `/developers/tools` lists 11 tools.
+- `/developers/tools` lists 15 tools.
 - `/admin/ai` (as an admin) shows "Online · database reachable".
 - An alert manage link from `subscribe_safety_alerts` opens.
 
