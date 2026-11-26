@@ -24,3 +24,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Brag demo videos
+brag-output/
+brag-output-pitch/
