@@ -148,7 +148,13 @@ See `.env.example`. Only `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and opti
 4. In Supabase → Database Webhooks: on `notifications` INSERT, POST to `…/whatsapp-webhook/dispatch` with header `Authorization: Bearer <DISPATCH_SECRET>`.
 5. Set `VITE_WHATSAPP_NUMBER` so QR codes open `wa.me/<number>?text=START hotel-001`.
 
-The webhook verifies `X-Hub-Signature-256`, ignores Meta's duplicate deliveries (`last_message_id`), rate-limits each number, stores conversation state in `whatsapp_sessions`, and handles unexpected input, keywords (`menu`, `help`/`agent`, `emergency`), returning users and cancellations. **Not yet done:** business-initiated messages outside WhatsApp's 24-hour window need **pre-approved templates**, and a Twilio adapter is not implemented. Neither has been tested against a live Meta account.
+The webhook verifies `X-Hub-Signature-256`, acknowledges Meta immediately and processes in the background, ignores duplicate deliveries (`whatsapp_inbound`), rate-limits each number, stores conversation state in `whatsapp_sessions`, accepts typed questions and shared locations as well as menu taps, and uses the same SQL tools as the MCP server (`assistant_tool`). See [docs/WHATSAPP_PARITY_AND_INCIDENTS.md](docs/WHATSAPP_PARITY_AND_INCIDENTS.md).
+
+**Case updates outside the 24-hour window** (optional): incident updates to a visitor whose last message was more than 24 hours ago need an approved *Utility* template with one body variable, e.g. `SafeArrival update: {{1}}`. Without it those rows are marked `not_configured` (never "sent").
+```bash
+supabase secrets set WHATSAPP_UPDATE_TEMPLATE=<name> WHATSAPP_UPDATE_TEMPLATE_LANG=en
+```
+None of this has been tested against a live Meta account. A Twilio adapter is not implemented.
 
 **Safety-alert WhatsApp delivery** (optional; without it, alerts appear on the subscriber's `/alerts/<token>` page and are marked "WhatsApp not connected"):
 1. In Meta, create a *Utility* template with 3 body variables. For example: `{{1}}: {{2}} Manage or stop these alerts: {{3}}`. Get it approved.

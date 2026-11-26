@@ -37,9 +37,15 @@ export const INCIDENT_CATEGORY = {
   host_identity_mismatch: 'Provider identity or contacts inconsistent',
   accommodation_unsafe: 'Felt unsafe at accommodation',
   accommodation_other: 'Other accommodation problem',
+  stranded: 'Lost or stranded',
+  medical_emergency: 'Medical emergency',
+  personal_safety: 'Personal safety concern',
 }
+export const PRIORITY = { critical: ['Critical', 'Immediate danger, violence, medical emergency or threat to life'],
+  urgent: ['Urgent', 'Active pickup mismatch, stranded visitor, intimidation, payment demand during a transaction'],
+  standard: ['Standard', 'Non-urgent accommodation, listing, payment or general concern'] }
 
-export const SERVICE = { accommodation: 'Accommodation', transport: 'Transport', incident: 'Incident reporting', guidance: 'Safety guidance' }
+export const SERVICE = { accommodation: 'Accommodation', transport: 'Transport', general: 'Personal safety', incident: 'Incident reporting', guidance: 'Safety guidance' }
 export const CHANNEL = { whatsapp: 'WhatsApp', mcp: 'ChatGPT / MCP' }
 export const SAFETY_SCALE = { 1: 'Very unsafe', 2: 'Unsafe', 3: 'Neutral', 4: 'Safe', 5: 'Very safe' }
 export const FEEDBACK_QUESTION = {
@@ -74,8 +80,15 @@ export const INCIDENT_STATUS = {
   follow_up: ['Follow-up in progress', 'Staff have acknowledged your report and are following up with you.'],
   resolved: ['Resolved', 'The hotel or safety team consider this report resolved. You can still reply if it isn’t.'],
   closed: ['Closed', 'This report is closed by the safety team.'],
+  triage: ['Triage', 'The safety team is reviewing your report and deciding who handles it.'],
+  assigned: ['Assigned', 'A member of the SafeArrival safety team is responsible for your report.'],
+  in_progress: ['In progress', 'Your report is being actively handled.'],
+  awaiting_visitor: ['Awaiting your reply', 'The safety team asked you for more information. Reply on WhatsApp.'],
+  awaiting_partner: ['Awaiting partner', 'Waiting for the hotel, accommodation or transport provider to respond.'],
+  unable_to_contact: ['Unable to contact visitor', 'We could not reach you. Reply on WhatsApp and we will continue.'],
 }
-export const INCIDENT_OPEN = ['received', 'hotel_notified', 'hotel_pending', 'provider_notified', 'escalated', 'referred_authorities', 'follow_up']
+export const INCIDENT_OPEN = ['received', 'hotel_notified', 'hotel_pending', 'provider_notified', 'escalated', 'referred_authorities', 'follow_up',
+  'triage', 'assigned', 'in_progress', 'awaiting_visitor', 'awaiting_partner', 'unable_to_contact']
 
 export const VERIFY_OUTCOME = {
   verified: 'Driver verified',

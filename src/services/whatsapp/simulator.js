@@ -3,6 +3,9 @@
 import { rpc, select } from '../api'
 import { BOOKING_STATUS, fmt, priceInfo } from '../../lib/labels'
 
+// One rate-limit bucket per browser tab, like one per WhatsApp number in production.
+const SIM_CLIENT = `simulator-${crypto.randomUUID()}`
+
 export const simulatorApi = {
   hotels: async () => (await select('hotels', 'name')).filter((h) => h.status === 'active'),
   pickupPoints: () => select('pickup_points', 'kind, name'),
@@ -26,6 +29,11 @@ export const simulatorApi = {
   guidance: (stage) => rpc('safety_guidance', { p_stage: stage }),
   requestFeedback: (p) => rpc('request_feedback', { p }),
   submitFeedback: (p) => rpc('submit_feedback', { p }),
+  // Same MCP tools as the production webhook (public.assistant_tool). The simulator has no WhatsApp id.
+  tool: (name, args) => rpc('assistant_tool', { p_tool: name, p_args: args, p_client: SIM_CLIENT }),
+  resolvePlace: (q) => rpc('resolve_place', { p_query: q }),
+  categoryInfo: (c) => rpc('incident_category_info', { p_category: c }),
+  followup: (t, kind, msg) => rpc('incident_followup', { p_token: t, p_kind: kind, p_message: msg }),
   tripLink: (t) => `${location.origin}/trip/${t}`,
   incidentLink: (t) => `${location.origin}/incident/${t}`,
   statusLabel: (s) => BOOKING_STATUS[s] ?? s,
