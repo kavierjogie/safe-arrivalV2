@@ -20,6 +20,10 @@ const api = {
   guidance: (stage) => rpc(null, 'safety_guidance', { p_stage: stage }),
   requestFeedback: (p) => rpc(null, 'request_feedback', { p: JSON.stringify(p) }),
   submitFeedback: (p) => rpc(null, 'submit_feedback', { p: JSON.stringify(p) }),
+  tool: (name, args) => rpc(null, 'assistant_tool', { p_tool: name, p_args: JSON.stringify(args), p_client: 'test-visitor' }),
+  resolvePlace: (q) => rpc(null, 'resolve_place', { p_query: q }),
+  categoryInfo: (c) => rpc(null, 'incident_category_info', { p_category: c }),
+  followup: (t, kind, msg) => rpc(null, 'incident_followup', { p_token: t, p_kind: kind, p_message: msg }),
   tripLink: (t) => `https://example.test/trip/${t}`,
   incidentLink: (t) => `https://example.test/incident/${t}`,
   statusLabel: (s) => s, fmtTime: (d) => String(d), priceText: () => 'R450',
@@ -38,9 +42,9 @@ const say = async (input) => {
 const last = (rs) => rs.at(-1)
 
 let r = await say({ text: 'hi' })
-assert.match(r[0].text, /Welcome to Cape Town/)
+assert.match(r[0].text, /Welcome to SafeArrival/)
 assert.equal(session.state, 'MENU')
-r = await say({ text: 'blah' })
+r = await say({ text: 'blah blah' })
 assert.match(r[0].text, /didn’t understand/)
 r = await say({ id: 'arrange' })
 assert.equal(session.state, 'PICKUP')
@@ -82,7 +86,11 @@ r = await say({ id: 'v:wrong_vehicle' })
 assert.match(r[0].text, /Do not enter the vehicle/)
 assert.equal(session.state, 'INCIDENT_DESCRIPTION')
 r = await say({ text: 'Registration was CA 999-111, not CA 123-456' })
+assert.equal(session.state, 'INCIDENT_URGENT', 'pickup location already known from the booking')
 r = await say({ id: 'urgent:no' })
+assert.equal(session.state, 'INCIDENT_CONFIRM', 'never submitted without confirmation')
+assert.match(last(r).text, /Vehicle did not match[\s\S]*International Arrivals[\s\S]*CA 999-111/)
+r = await say({ id: 'submit' })
 assert.match(r[0].text, /SAFE-\d{4}-\d{4}/)
 assert.match(r[0].text, /not a police case number/)
 const inc = await rpc(null, 'get_incident', { p_token: session.ctx.lastIncidentToken })
@@ -136,7 +144,10 @@ r = await say({ id: 'report' })
 assert.ok(last(r).rows.some((x) => x.id === 'cat:host_identity_mismatch'), 'accommodation categories')
 await say({ id: 'cat:host_identity_mismatch' })
 await say({ text: 'A WhatsApp number claiming to be the lodge asked for a deposit' })
-r = await say({ id: 'urgent:no' })
+assert.equal(session.state, 'INCIDENT_LOCATION')
+await say({ id: 'skip' })
+await say({ id: 'urgent:no' })
+r = await say({ id: 'submit' })
 assert.match(r[0].text, /safety team will review/)
 assert.equal(session.state, 'FEEDBACK_ASK', 'feedback offered after a report')
 const accTok = session.ctx.lastIncidentToken

@@ -2,7 +2,7 @@ import {
   AlertOctagon, Ban, Car, CheckCircle2, CircleDot, Clock, Eye, Flag, Hourglass, MapPin, Navigation, ShieldAlert,
   ShieldCheck, ShieldQuestion, Siren, UserCheck, XCircle, Building2, Landmark,
 } from 'lucide-react'
-import { BOOKING_STATUS, INCIDENT_CATEGORY, INCIDENT_STATUS, PARTNER_STATUS, VERIFY_OUTCOME } from '../../lib/labels'
+import { BOOKING_STATUS, INCIDENT_CATEGORY, INCIDENT_STATUS, PARTNER_STATUS, PRIORITY, VERIFY_OUTCOME } from '../../lib/labels'
 
 const TONES = {
   slate: 'bg-slate-100 text-slate-700 ring-slate-200',
@@ -32,10 +32,14 @@ export const BookingStatusBadge = ({ status }) => <Badge tone={B[status]?.[0]} i
 const I = {
   received: ['red', CircleDot], hotel_notified: ['amber', Building2], hotel_pending: ['amber', Hourglass], provider_notified: ['amber', Car],
   escalated: ['red', ShieldAlert], referred_authorities: ['navy', Landmark], follow_up: ['teal', Eye], resolved: ['green', CheckCircle2], closed: ['slate', CheckCircle2],
+  triage: ['amber', Eye], assigned: ['teal', UserCheck], in_progress: ['teal', Clock], awaiting_visitor: ['amber', Hourglass], awaiting_partner: ['amber', Building2],
+  unable_to_contact: ['slate', XCircle],
 }
 export const IncidentStatusBadge = ({ status }) => <Badge tone={I[status]?.[0]} icon={I[status]?.[1]}>{INCIDENT_STATUS[status]?.[0] ?? status}</Badge>
 
 export const CategoryBadge = ({ category }) => <Badge tone="slate" icon={Flag}>{INCIDENT_CATEGORY[category] ?? category}</Badge>
+const PR = { critical: ['red', Siren], urgent: ['amber', AlertOctagon], standard: ['slate', Flag] }
+export const PriorityBadge = ({ priority }) => <Badge tone={PR[priority]?.[0]} icon={PR[priority]?.[1]}>{PRIORITY[priority]?.[0] ?? priority}</Badge>
 export const UrgentBadge = () => <Badge tone="red" icon={Siren}>Immediate help requested</Badge>
 
 const P = { active: ['green', ShieldCheck], approved: ['green', ShieldCheck], pending: ['amber', ShieldQuestion], suspended: ['red', Ban], rejected: ['slate', XCircle] }
