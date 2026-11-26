@@ -426,7 +426,7 @@ end $$;
 -- Updates the SAME case; never resolves or downgrades it.
 create or replace function public.incident_followup(p_token text, p_kind text, p_message text default null) returns jsonb
 language plpgsql security definer set search_path = public, extensions as $$
-declare i public.incidents; msg text := left(trim(coalesce(p_message, '')), 1000); note text;
+declare i public.incidents; msg text := left(trim(coalesce(p_message, '')), 1000); note text; was text;
 begin
   select * into i from public.incidents where access_token = p_token for update;
   if i.id is null or length(coalesce(p_token, '')) < 20 then raise exception 'Report not found' using errcode = 'P0002'; end if;
@@ -442,12 +442,13 @@ begin
                       else 'Visitor asked for more help.' || coalesce(' ' || nullif(msg, ''), '') end;
   insert into public.incident_updates (incident_id, message, visibility, author_label) values (i.id, note, 'internal', 'Visitor');
 
+  was := i.status;
   update public.incidents set
     visitor_safe = case p_kind when 'safe' then true when 'help' then false else visitor_safe end,
     priority = case when p_kind = 'help' and priority = 'standard' then 'urgent' else priority end,
     status = case when status in ('awaiting_visitor', 'unable_to_contact') then 'in_progress' else status end
   where id = i.id returning * into i;
-  if i.status = 'in_progress' then
+  if was in ('awaiting_visitor', 'unable_to_contact') then
     insert into public.incident_updates (incident_id, status, message, author_label)
     values (i.id, 'in_progress', 'Thank you. The information you sent has been added to your report.', 'SafeArrival safety team');
   end if;
